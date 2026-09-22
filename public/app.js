@@ -83,7 +83,12 @@ function setBusy(state) {
 function addUserMessage(text) {
   const el = document.createElement("div");
   el.className = "msg user";
-  el.innerHTML = `<div class="role">Tu</div><div class="bubble"></div>`;
+  el.innerHTML = `
+    <div class="avatar" aria-hidden="true">🧑</div>
+    <div class="stack">
+      <div class="role">Tu</div>
+      <div class="bubble"></div>
+    </div>`;
   el.querySelector(".bubble").textContent = text;
   chatEl.appendChild(el);
   scrollDown();
@@ -93,13 +98,16 @@ function createJudgeMessage() {
   const el = document.createElement("div");
   el.className = "msg judge";
   el.innerHTML = `
-    <div class="role">Judge</div>
-    <div class="bubble">
-      <details class="reasoning" hidden>
-        <summary>Ragionamento del judge</summary>
-        <div class="reasoning-body"></div>
-      </details>
-      <div class="content cursor"></div>
+    <div class="avatar" aria-hidden="true">⚖️</div>
+    <div class="stack">
+      <div class="role">Judge</div>
+      <div class="bubble">
+        <details class="reasoning" hidden>
+          <summary><span class="spark">✦</span> Ragionamento del judge</summary>
+          <div class="reasoning-body"></div>
+        </details>
+        <div class="content cursor"></div>
+      </div>
     </div>`;
   chatEl.appendChild(el);
   scrollDown();

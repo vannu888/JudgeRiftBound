@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0e15" />
     <title>Judge Rift Bound</title>
     <meta
       name="description"
@@ -11,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cinzel:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cinzel:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
@@ -21,6 +22,7 @@
     />
   </head>
   <body>
+    <div class="aurora" aria-hidden="true"></div>
     <div class="app">
       <header class="topbar">
         <div class="brand">
@@ -30,7 +32,9 @@
             <p>Il tuo arbitro virtuale per il ruling, in tempo reale</p>
           </div>
         </div>
-        <button id="newChat" class="ghost-btn" title="Nuova sessione">＋ Nuova domanda</button>
+        <button id="newChat" class="ghost-btn" title="Nuova sessione">
+          <span aria-hidden="true">＋</span> Nuova domanda
+        </button>
       </header>
 
       <div id="apiWarning" class="api-warning" hidden>
@@ -40,25 +44,31 @@
 
       <main id="chat" class="chat" aria-live="polite">
         <section id="welcome" class="welcome">
-          <div class="welcome-card">
-            <h2>Descrivi la situazione di gioco</h2>
-            <p>
-              Spiega cosa sta succedendo in partita — turno, fase, unità e carte coinvolte — e ti dico
-              come procedere, citando le regole ufficiali di Rift Bound.
-            </p>
-            <div class="examples">
-              <button class="example">
-                È il turno del mio avversario. Ho un'unità con Deflect a un battlefield: come funziona
-                il danno in combattimento contro un'unità con Backline?
-              </button>
-              <button class="example">
-                Ho giocato una spell durante lo showdown dell'avversario. Lui risponde con una
-                Reaction: in che ordine si risolvono gli effetti nella chain?
-              </button>
-              <button class="example">
-                Posso attivare un'abilità di un Gear mentre la priorità è in Closed State? Cosa serve?
-              </button>
-            </div>
+          <div class="medallion" aria-hidden="true">
+            <span>⚖️</span>
+          </div>
+          <h2 class="welcome-title">Descrivi la situazione di gioco</h2>
+          <p class="welcome-sub">
+            Spiega cosa sta succedendo in partita — turno, fase, unità e carte coinvolte — e ti dico
+            come procedere, citando le regole ufficiali di Rift Bound.
+          </p>
+          <p class="examples-label">Prova con un esempio</p>
+          <div class="examples">
+            <button class="example">
+              <span class="ex-icon">⚔️</span>
+              <span>Ho un'unità con Deflect a un battlefield: come funziona il danno in combattimento
+                contro un'unità con Backline?</span>
+            </button>
+            <button class="example">
+              <span class="ex-icon">🔗</span>
+              <span>Gioco una spell durante lo showdown dell'avversario e lui risponde con una
+                Reaction: in che ordine si risolve la chain?</span>
+            </button>
+            <button class="example">
+              <span class="ex-icon">⏱️</span>
+              <span>Posso attivare l'abilità di un Gear mentre la priorità è in Closed State? Cosa
+                serve?</span>
+            </button>
           </div>
         </section>
       </main>
@@ -73,7 +83,7 @@
           ></textarea>
           <button id="send" type="submit" title="Invia (Invio)">
             <span class="send-label">Chiedi al judge</span>
-            <span class="send-icon">➤</span>
+            <span class="send-icon" aria-hidden="true">➤</span>
           </button>
         </form>
         <p class="disclaimer">
