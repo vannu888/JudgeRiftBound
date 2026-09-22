@@ -1,22 +1,26 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = path.join(here, "..", "data", "riftbound-core-rules.txt");
 
 // --- Configuration (override via environment variables) ---
-export const MODEL = process.env.JUDGE_MODEL || "claude-opus-5";
-export const EFFORT = process.env.JUDGE_EFFORT || "high"; // low | medium | high | xhigh | max
-const MAX_TOKENS = Number(process.env.JUDGE_MAX_TOKENS || 32000);
+// gemini-2.5-flash: buon ragionamento, 250 richieste/giorno gratis.
+// Alternative: gemini-2.5-flash-lite (più richieste), gemini-2.5-pro (più bravo, meno richieste).
+export const MODEL = process.env.JUDGE_MODEL || "gemini-2.5-flash";
+// Budget di "thinking": -1 = automatico (il modello decide), 0 = disattivato.
+const THINKING_BUDGET = Number(process.env.JUDGE_THINKING_BUDGET ?? -1);
 
-// The official Core Rules, loaded once at startup and reused (cached) on every request.
+// La chiave gratuita si crea su https://aistudio.google.com/apikey
+const API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+export const HAS_API_KEY = Boolean(API_KEY);
+
+// The official Core Rules, loaded once at startup and reused on every request.
 const RULES_TEXT = fs.readFileSync(RULES_PATH, "utf8");
 
-// One shared client. Credentials are resolved from the environment
-// (ANTHROPIC_API_KEY, or an `ant auth login` profile). Never hardcode a key.
-const client = new Anthropic();
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const SYSTEM_INSTRUCTIONS = `Sei un JUDGE ufficiale ed esperto del gioco di carte collezionabili "Riftbound" (il TCG di League of Legends). Il tuo compito è risolvere in tempo reale le situazioni di gioco che un giocatore ti descrive, esattamente come farebbe un arbitro a un torneo: il giocatore spiega cosa sta succedendo in partita e tu gli dici come procedere.
 
@@ -45,20 +49,9 @@ Di seguito il testo integrale delle Riftbound Core Rules.
 ${RULES_TEXT}
 ======================= FINE REGOLE =======================`;
 
-// The system prompt is a stable prefix: mark it for prompt caching so the large
-// ruleset is billed at ~10% on every request after the first (1h TTL keeps it
-// warm across a play session). Nothing volatile goes before this breakpoint.
-const SYSTEM_BLOCKS = [
-  {
-    type: "text",
-    text: SYSTEM_INSTRUCTIONS,
-    cache_control: { type: "ephemeral", ttl: "1h" },
-  },
-];
-
 /**
- * Sanitize the conversation coming from the browser into valid Anthropic messages.
- * Only user/assistant turns with non-empty string content survive.
+ * Convert the browser conversation into Gemini `contents`.
+ * Browser sends {role: "user"|"assistant", content}; Gemini uses role "user"|"model".
  */
 export function normalizeMessages(raw) {
   if (!Array.isArray(raw)) return [];
@@ -67,24 +60,28 @@ export function normalizeMessages(raw) {
     if (!m || (m.role !== "user" && m.role !== "assistant")) continue;
     const content = typeof m.content === "string" ? m.content.trim() : "";
     if (!content) continue;
-    out.push({ role: m.role, content });
+    out.push({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: content }],
+    });
   }
-  // The API requires the first message to be from the user.
+  // Gemini requires the first turn to be from the user.
   while (out.length && out[0].role !== "user") out.shift();
   return out;
 }
 
 /**
- * Open a streaming judge response for the given conversation history.
- * Returns the SDK stream object (async-iterable of events).
+ * Open a streaming judge response for the given conversation.
+ * Returns Promise<AsyncGenerator<GenerateContentResponse>>.
  */
-export function streamJudge(messages) {
-  return client.messages.stream({
+export function streamJudge(contents, abortSignal) {
+  return ai.models.generateContentStream({
     model: MODEL,
-    max_tokens: MAX_TOKENS,
-    system: SYSTEM_BLOCKS,
-    thinking: { type: "adaptive", display: "summarized" },
-    output_config: { effort: EFFORT },
-    messages,
+    contents,
+    config: {
+      systemInstruction: SYSTEM_INSTRUCTIONS,
+      thinkingConfig: { includeThoughts: true, thinkingBudget: THINKING_BUDGET },
+      abortSignal,
+    },
   });
 }

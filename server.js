@@ -2,8 +2,8 @@ import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
-import Anthropic from "@anthropic-ai/sdk";
-import { streamJudge, normalizeMessages, MODEL, EFFORT } from "./src/judge.js";
+import { ApiError } from "@google/genai";
+import { streamJudge, normalizeMessages, MODEL, HAS_API_KEY } from "./src/judge.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
@@ -15,26 +15,21 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(here, "public")));
 
 app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    model: MODEL,
-    effort: EFFORT,
-    hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY),
-  });
+  res.json({ ok: true, model: MODEL, hasApiKey: HAS_API_KEY });
 });
 
 app.post("/api/ask", async (req, res) => {
-  const messages = normalizeMessages(req.body?.messages);
+  const contents = normalizeMessages(req.body?.messages);
 
-  if (messages.length === 0) {
+  if (contents.length === 0) {
     res.status(400).json({ error: "Nessuna domanda valida ricevuta." });
     return;
   }
-  if (messages.length > MAX_MESSAGES) {
+  if (contents.length > MAX_MESSAGES) {
     res.status(400).json({ error: "Conversazione troppo lunga. Inizia una nuova sessione." });
     return;
   }
-  const tooLong = messages.find((m) => m.content.length > MAX_CHARS);
+  const tooLong = contents.find((m) => m.parts[0].text.length > MAX_CHARS);
   if (tooLong) {
     res.status(400).json({ error: "Messaggio troppo lungo: accorcia la descrizione della situazione." });
     return;
@@ -57,58 +52,62 @@ app.post("/api/ask", async (req, res) => {
   // NOTE: `req` emits "close" as soon as the request body is received, even
   // while the client is still connected — so it is NOT a disconnect signal.
   // The response's "close" before we finish writing is the real signal.
+  const controller = new AbortController();
   let clientGone = false;
   res.on("close", () => {
-    if (!res.writableEnded) clientGone = true;
+    if (!res.writableEnded) {
+      clientGone = true;
+      controller.abort(); // stop the upstream Gemini call
+    }
   });
 
   try {
-    const stream = streamJudge(messages);
-
-    // Abort the upstream call if the browser actually disconnects.
-    res.on("close", () => {
-      if (!res.writableEnded) stream.abort?.();
-    });
+    const stream = await streamJudge(contents, controller.signal);
+    let usage = null;
 
     for await (const chunk of stream) {
       if (clientGone) break;
-      if (chunk.type === "content_block_delta") {
-        if (chunk.delta.type === "thinking_delta") {
-          send("reasoning", { text: chunk.delta.thinking });
-        } else if (chunk.delta.type === "text_delta") {
-          send("answer", { text: chunk.delta.text });
-        }
+      if (chunk.usageMetadata) usage = chunk.usageMetadata;
+
+      const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+      for (const part of parts) {
+        if (typeof part.text !== "string" || part.text.length === 0) continue;
+        if (part.thought) send("reasoning", { text: part.text });
+        else send("answer", { text: part.text });
       }
     }
 
     if (!clientGone) {
-      const final = await stream.finalMessage();
       send("done", {
-        stop_reason: final.stop_reason,
-        usage: {
-          input_tokens: final.usage.input_tokens,
-          output_tokens: final.usage.output_tokens,
-          cache_read_input_tokens: final.usage.cache_read_input_tokens,
-          cache_creation_input_tokens: final.usage.cache_creation_input_tokens,
-        },
+        usage: usage
+          ? {
+              input_tokens: usage.promptTokenCount ?? 0,
+              output_tokens:
+                (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
+            }
+          : null,
       });
       res.end();
     }
   } catch (err) {
-    console.error("[judge] errore:", err);
-    if (clientGone || res.writableEnded) {
+    if (clientGone || controller.signal.aborted) {
       try { res.end(); } catch { /* ignore */ }
       return;
     }
+    console.error("[judge] errore:", err);
+    if (res.writableEnded) return;
+
     let message = "Si è verificato un errore nel contattare il judge. Riprova.";
-    if (!process.env.ANTHROPIC_API_KEY) {
-      message = "Chiave API non configurata sul server. Imposta ANTHROPIC_API_KEY nel file .env e riavvia.";
-    } else if (err instanceof Anthropic.AuthenticationError) {
-      message = "Chiave API mancante o non valida. Controlla ANTHROPIC_API_KEY nel file .env.";
-    } else if (err instanceof Anthropic.RateLimitError) {
-      message = "Troppe richieste al momento. Attendi qualche secondo e riprova.";
-    } else if (err instanceof Anthropic.APIError) {
-      message = `Errore API (${err.status ?? "?"}): ${err.message}`;
+    if (!HAS_API_KEY) {
+      message = "Chiave API non configurata sul server. Imposta GEMINI_API_KEY e riavvia.";
+    } else if (err instanceof ApiError) {
+      if (err.status === 429) {
+        message = "Limite gratuito raggiunto per ora. Attendi un minuto e riprova (o usa un modello con più richieste, es. gemini-2.5-flash-lite).";
+      } else if (err.status === 400 || err.status === 403) {
+        message = "Chiave API non valida o senza permessi. Controlla GEMINI_API_KEY.";
+      } else {
+        message = `Errore API (${err.status}): ${err.message}`;
+      }
     }
     send("error", { message });
     res.end();
@@ -116,11 +115,11 @@ app.post("/api/ask", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  const keyState = process.env.ANTHROPIC_API_KEY ? "trovata" : "MANCANTE";
+  const keyState = HAS_API_KEY ? "trovata" : "MANCANTE";
   console.log(`\n⚖️  Judge Rift Bound in ascolto su http://localhost:${PORT}`);
-  console.log(`   Modello: ${MODEL}  |  effort: ${EFFORT}  |  ANTHROPIC_API_KEY: ${keyState}`);
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log("   ⚠️  Imposta la chiave in un file .env (vedi .env.example) prima di fare domande.\n");
+  console.log(`   Modello: ${MODEL}  |  GEMINI_API_KEY: ${keyState}`);
+  if (!HAS_API_KEY) {
+    console.log("   ⚠️  Crea una chiave GRATUITA su https://aistudio.google.com/apikey e mettila in .env\n");
   } else {
     console.log("");
   }
