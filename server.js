@@ -61,21 +61,60 @@ app.post("/api/ask", async (req, res) => {
     }
   });
 
+  // Inactivity guard: if the upstream produces nothing for a while (Gemini
+  // hanging or overloaded), abort and tell the user instead of hanging forever.
+  const INACTIVITY_MS = Number(process.env.JUDGE_TIMEOUT_MS || 60000);
+  let timedOut = false;
+  let idleTimer;
+  const bump = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, INACTIVITY_MS);
+  };
+
   try {
-    const stream = await streamJudge(contents, controller.signal);
     let usage = null;
+    let answerStarted = false;
+    bump();
 
-    for await (const chunk of stream) {
-      if (clientGone) break;
-      if (chunk.usageMetadata) usage = chunk.usageMetadata;
+    // Gemini can return transient 503/500 (high demand) even mid-stream. Retry
+    // once if it fails BEFORE any answer text was sent (only reasoning so far),
+    // which is safe to redo. We keep it to a SINGLE retry: each attempt resends
+    // the full ruleset (~95k tokens), and the free tier allows 250k input
+    // tokens/minute, so more retries would just trigger a 429. Once answer text
+    // has streamed we don't retry (it would duplicate) and surface the error.
+    const MAX_RETRIES = 1;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const stream = await streamJudge(contents, controller.signal);
+        for await (const chunk of stream) {
+          if (clientGone) break;
+          if (chunk.usageMetadata) usage = chunk.usageMetadata;
 
-      const parts = chunk.candidates?.[0]?.content?.parts ?? [];
-      for (const part of parts) {
-        if (typeof part.text !== "string" || part.text.length === 0) continue;
-        if (part.thought) send("reasoning", { text: part.text });
-        else send("answer", { text: part.text });
+          const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+          for (const part of parts) {
+            if (typeof part.text !== "string" || part.text.length === 0) continue;
+            bump(); // progress: reset the inactivity timer
+            if (part.thought) {
+              send("reasoning", { text: part.text });
+            } else {
+              answerStarted = true;
+              send("answer", { text: part.text });
+            }
+          }
+        }
+        break; // stream finished cleanly
+      } catch (err) {
+        const transient = err instanceof ApiError && (err.status === 503 || err.status === 500);
+        const canRetry = transient && !answerStarted && !clientGone && !controller.signal.aborted && attempt < MAX_RETRIES;
+        if (!canRetry) throw err;
+        send("retry", {}); // tell the client to discard the partial (reasoning) output
+        await new Promise((r) => setTimeout(r, 800 * 2 ** attempt)); // 0.8s, 1.6s, 3.2s
       }
     }
+    clearTimeout(idleTimer);
 
     if (!clientGone) {
       send("done", {
@@ -90,19 +129,28 @@ app.post("/api/ask", async (req, res) => {
       res.end();
     }
   } catch (err) {
-    if (clientGone || controller.signal.aborted) {
+    clearTimeout(idleTimer);
+    if (clientGone) {
       try { res.end(); } catch { /* ignore */ }
       return;
     }
-    console.error("[judge] errore:", err);
     if (res.writableEnded) return;
 
+    if (timedOut) {
+      send("error", { message: "Il judge non ha risposto in tempo (Gemini lento o sovraccarico). Riprova." });
+      res.end();
+      return;
+    }
+
+    console.error("[judge] errore:", err);
     let message = "Si è verificato un errore nel contattare il judge. Riprova.";
     if (!HAS_API_KEY) {
       message = "Chiave API non configurata sul server. Imposta GEMINI_API_KEY e riavvia.";
     } else if (err instanceof ApiError) {
       if (err.status === 429) {
-        message = "Limite gratuito raggiunto per ora. Attendi un minuto e riprova (o usa un modello con più richieste, es. gemini-2.5-flash-lite).";
+        message = "Limite del piano gratuito raggiunto (250k token/minuto): ogni domanda include tutto il regolamento. Attendi ~1 minuto tra una domanda e l'altra.";
+      } else if (err.status === 503 || err.status === 500) {
+        message = "Modello Gemini momentaneamente sovraccarico lato Google. Riprova tra qualche secondo.";
       } else if (err.status === 400 || err.status === 403) {
         message = "Chiave API non valida o senza permessi. Controlla GEMINI_API_KEY.";
       } else {

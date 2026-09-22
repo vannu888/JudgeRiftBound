@@ -171,6 +171,14 @@ async function askJudge() {
           answer += data.text;
           ui.content.innerHTML = renderMarkdown(answer);
           scrollDown();
+        } else if (event === "retry") {
+          // Server is re-attempting after a transient error: discard the
+          // partial output so the fresh attempt doesn't append to it.
+          reasoning = "";
+          answer = "";
+          gotAnswer = false;
+          ui.reasoningBody.textContent = "";
+          ui.content.innerHTML = "";
         } else if (event === "error") {
           showError(ui, data.message);
         } else if (event === "done") {

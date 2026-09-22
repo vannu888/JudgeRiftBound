@@ -7,9 +7,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = path.join(here, "..", "data", "riftbound-core-rules.txt");
 
 // --- Configuration (override via environment variables) ---
-// gemini-2.5-flash: buon ragionamento, 250 richieste/giorno gratis.
-// Alternative: gemini-2.5-flash-lite (più richieste), gemini-2.5-pro (più bravo, meno richieste).
-export const MODEL = process.env.JUDGE_MODEL || "gemini-2.5-flash";
+// gemini-flash-latest: alias che punta sempre al modello Flash stabile corrente
+// (così non si "rompe" quando Google ritira le versioni vecchie).
+// Alternative: gemini-flash-lite-latest (limiti più alti), gemini-pro-latest (più bravo),
+// oppure una versione fissa come gemini-3.6-flash.
+export const MODEL = process.env.JUDGE_MODEL || "gemini-flash-latest";
 // Budget di "thinking": -1 = automatico (il modello decide), 0 = disattivato.
 const THINKING_BUDGET = Number(process.env.JUDGE_THINKING_BUDGET ?? -1);
 

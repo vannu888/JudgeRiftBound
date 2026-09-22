@@ -22,7 +22,9 @@ situazione di gioco e ricevi in tempo reale un ruling — come procedere e perch
 3. Copia la chiave (inizia con `AIza...`) e incollala nel file `.env` (vedi sotto).
 
 Il piano gratuito è permanente e senza carta di credito, con limiti di velocità pensati per l'uso
-personale (con `gemini-2.5-flash`: ~10 richieste al minuto, 250 al giorno).
+personale. Nota: ogni domanda include l'intero regolamento (~95k token) e il piano gratuito
+consente 250.000 token di input al minuto per modello, quindi conviene distanziare un minuto le
+domande in rapida successione (l'app te lo segnala se superi il limite).
 
 ## Avvio rapido (in locale)
 
@@ -79,7 +81,7 @@ Opzioni nel file `.env` (vedi `.env.example`):
 | ----------------------- | ------------------ | --------------------------------------------------------------------- |
 | `GEMINI_API_KEY`        | —                  | **Obbligatoria.** La tua chiave API Google Gemini (gratuita).         |
 | `PORT`                  | `3000`             | Porta del server.                                                     |
-| `JUDGE_MODEL`           | `gemini-2.5-flash` | Modello. `gemini-2.5-flash-lite` = più richieste; `gemini-2.5-pro` = più bravo (meno richieste). |
+| `JUDGE_MODEL`           | `gemini-flash-latest` | Modello. `gemini-flash-lite-latest` = limiti più alti; `gemini-pro-latest` = più bravo; oppure una versione fissa (es. `gemini-3.6-flash`). |
 | `JUDGE_THINKING_BUDGET` | `-1`               | Ragionamento: `-1` automatico, `0` disattivato, oppure un numero di token. |
 
 ## Struttura del progetto
