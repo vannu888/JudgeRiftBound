@@ -1,0 +1,19 @@
+{
+  "name": "judge-riftbound",
+  "version": "1.0.0",
+  "description": "Judge virtuale per Rift Bound: rispondi a domande di ruling ragionando sul regolamento ufficiale tramite Claude API.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
+    "dotenv": "^17.0.0",
+    "express": "^4.21.2"
+  }
+}

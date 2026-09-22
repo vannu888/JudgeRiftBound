@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Judge Rift Bound</title>
+    <meta
+      name="description"
+      content="Chiedi a un judge virtuale come risolvere le situazioni di ruling di Rift Bound, in tempo reale."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cinzel:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%96%EF%B8%8F%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">⚖️</span>
+          <div class="brand-text">
+            <h1>Judge Rift Bound</h1>
+            <p>Il tuo arbitro virtuale per il ruling, in tempo reale</p>
+          </div>
+        </div>
+        <button id="newChat" class="ghost-btn" title="Nuova sessione">＋ Nuova domanda</button>
+      </header>
+
+      <div id="apiWarning" class="api-warning" hidden>
+        ⚠️ Chiave API non configurata sul server. Imposta <code>ANTHROPIC_API_KEY</code> nel file
+        <code>.env</code> e riavvia.
+      </div>
+
+      <main id="chat" class="chat" aria-live="polite">
+        <section id="welcome" class="welcome">
+          <div class="welcome-card">
+            <h2>Descrivi la situazione di gioco</h2>
+            <p>
+              Spiega cosa sta succedendo in partita — turno, fase, unità e carte coinvolte — e ti dico
+              come procedere, citando le regole ufficiali di Rift Bound.
+            </p>
+            <div class="examples">
+              <button class="example">
+                È il turno del mio avversario. Ho un'unità con Deflect a un battlefield: come funziona
+                il danno in combattimento contro un'unità con Backline?
+              </button>
+              <button class="example">
+                Ho giocato una spell durante lo showdown dell'avversario. Lui risponde con una
+                Reaction: in che ordine si risolvono gli effetti nella chain?
+              </button>
+              <button class="example">
+                Posso attivare un'abilità di un Gear mentre la priorità è in Closed State? Cosa serve?
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="composer">
+        <form id="askForm">
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="Descrivi la situazione o fai una domanda di ruling…"
+            autocomplete="off"
+          ></textarea>
+          <button id="send" type="submit" title="Invia (Invio)">
+            <span class="send-label">Chiedi al judge</span>
+            <span class="send-icon">➤</span>
+          </button>
+        </form>
+        <p class="disclaimer">
+          Le risposte si basano sulle Riftbound Core Rules. Per un torneo ufficiale, la parola finale
+          spetta al judge presente.
+        </p>
+      </footer>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
