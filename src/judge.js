@@ -1,14 +1,9 @@
 // Il "cervello" del judge: prompt di sistema (regolamento completo) e
 // chiamata in streaming a Google Gemini.
 
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { GoogleGenAI } from "@google/genai";
 import { formatCardsBlock } from "./cards.js";
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const RULES_PATH = path.join(here, "..", "data", "riftbound-core-rules.txt");
+import { RULES_TEXT } from "./rules.js";
 
 // --- Configuration (override via environment variables) ---
 // gemini-flash-latest: alias che punta sempre al modello Flash stabile corrente.
@@ -24,39 +19,6 @@ export const HAS_API_KEY = Boolean(API_KEY);
 
 export const MAX_MESSAGES = 40; // safety cap on conversation length
 export const MAX_CHARS = 8000; // safety cap on a single message
-
-const RULE_START = /^\d{3}\.(?:[0-9a-z]+\.?)*\s/; // "135.", "461.4", "359.3.f.3.a.1"
-const OWN_LINE = /^(?:examples?\b|notes?\b|see rule\b|\* |• )/i;
-
-/**
- * Strip the PDF layout from the rules (column padding, lines wrapped mid-sentence,
- * zero-width characters) without touching a single word: every rule, example
- * and "See rule" note starts a new line; wrapped lines are joined back. This
- * cuts the tokens sent with every question. Idempotent.
- */
-export function compactRules(text) {
-  const out = [];
-  let paragraphBreak = true;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.replace(/[\u200b-\u200d\ufeff]/g, "").replace(/[ \t]+/g, " ").trim();
-    if (!line) {
-      paragraphBreak = true;
-      continue;
-    }
-    const startsItem = RULE_START.test(line) || OWN_LINE.test(line);
-    if (!paragraphBreak && !startsItem) {
-      out[out.length - 1] += ` ${line}`; // a line wrapped by the PDF layout
-    } else {
-      // Keep a blank line only where it is the sole separator (e.g. between example items).
-      if (paragraphBreak && !startsItem && out.length) out.push("");
-      out.push(line);
-    }
-    paragraphBreak = false;
-  }
-  return `${out.join("\n")}\n`;
-}
-
-const RULES_TEXT = compactRules(fs.readFileSync(RULES_PATH, "utf8"));
 
 // Created on first use, so importing this module never needs a key.
 let client;
@@ -76,6 +38,9 @@ const SYSTEM_INSTRUCTIONS = `Sei un JUDGE ufficiale ed esperto del gioco di cart
 - Il blocco è generato automaticamente riconoscendo i nomi: può contenere carte che non c'entrano (ignorale) e, se il giocatore nomina un campione, tutte le sue versioni (usa quella pertinente o chiedi quale).
 - Se il ruling dipende da una carta che NON compare nel blocco, chiedi il nome esatto della carta (in inglese, come stampato) o il suo testo prima di dare un verdetto definitivo.
 - Se una carta risulta BANNED, segnalalo quando è rilevante (es. deck building o tornei).
+
+## Stato della partita
+- Se il messaggio contiene un blocco [STATO PARTITA], è il punteggio attuale dal segnapunti del giocatore: usalo per i ruling su punti e vittoria (es. il punto vincente, 466.1.b, e la vittoria, 467). Il primo giocatore elencato è chi ti scrive.
 
 ## Come rispondere
 - Rispondi nella stessa lingua in cui il giocatore scrive. Se scrive in italiano, rispondi in italiano.
@@ -112,17 +77,51 @@ export function sanitizeMessages(raw) {
   return out;
 }
 
+const MODES = {
+  duel: "1v1 Duello (480)",
+  match: "1v1 Match al meglio di 3 (481)",
+  ffa3: "Tutti contro tutti, 3 giocatori (482)",
+  ffa4: "Tutti contro tutti, 4 giocatori (483)",
+  team: "2v2 a squadre (484)",
+};
+
+const int = (v, min, max) => (Number.isInteger(v) && v >= min && v <= max ? v : null);
+
+/** Validate the score sent by the scoreboard; null if absent or malformed. */
+export function sanitizeGame(raw) {
+  if (!raw || typeof raw !== "object" || !Object.hasOwn(MODES, raw.mode)) return null;
+  const victory = int(raw.victory, 1, 50);
+  if (!victory || !Array.isArray(raw.players)) return null;
+  const players = raw.players.slice(0, 4).map((p) => ({
+    name: String(p?.name ?? "").replace(/[\[\]\r\n]/g, " ").trim().slice(0, 24) || "Giocatore",
+    points: int(p?.points, 0, 99) ?? 0,
+    wins: int(p?.wins, 0, 9) ?? 0,
+  }));
+  return players.length >= 2 ? { mode: raw.mode, victory, players } : null;
+}
+
+export function formatGameBlock(game) {
+  const score = game.players
+    .map((p) => `${p.name} ${p.points}${game.mode === "match" ? ` (partite vinte ${p.wins})` : ""}`)
+    .join(" · ");
+  return `[STATO PARTITA dal segnapunti] Modalità: ${MODES[game.mode]}. Punti per vincere: ${game.victory}. Punteggio: ${score}.`;
+}
+
 /**
- * Convert to Gemini `contents`, attaching the text of the cited cards to the
- * latest question (not to the system prompt, which must stay identical).
+ * Convert to Gemini `contents`. The text of the cited cards and the current
+ * score go into the latest question (not into the system prompt, which must
+ * stay identical to be reused from Gemini's cache).
  */
-export function buildContents(messages, cards = []) {
+export function buildContents(messages, cards = [], game = null) {
   const lastUser = messages.findLastIndex((m) => m.role === "user");
+  const context = [];
+  if (cards.length) context.push({ text: formatCardsBlock(cards) });
+  if (game) context.push({ text: formatGameBlock(game) });
   return messages.map((m, i) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts:
-      i === lastUser && cards.length
-        ? [{ text: formatCardsBlock(cards) }, { text: `Domanda del giocatore:\n${m.content}` }]
+      i === lastUser && context.length
+        ? [...context, { text: `Domanda del giocatore:\n${m.content}` }]
         : [{ text: m.content }],
   }));
 }

@@ -1,6 +1,7 @@
 // Interfaccia delle carte: tile, chip "carte considerate", dettaglio e archivio.
 
 import { escapeHtml, renderCardText, domainColor } from "./markdown.js";
+import { getJSON, LockedError } from "./api.js";
 
 const COSTED = new Set(["Unit", "Unit Gear", "Spell", "Gear"]);
 const TYPE_LABEL = {
@@ -67,13 +68,6 @@ export function openCardDetail(card) {
   detail.showModal();
 }
 
-// Close dialogs with the ✕ buttons or by clicking the backdrop.
-for (const dlg of document.querySelectorAll("dialog")) {
-  dlg.addEventListener("click", (e) => {
-    if (e.target === dlg || e.target.closest("[data-close]")) dlg.close();
-  });
-}
-
 /** "Carte considerate" chips at the top of a judge message. */
 export function renderCardChips(container, cards) {
   container.innerHTML = "";
@@ -98,13 +92,12 @@ export function renderCardChips(container, cards) {
   }
 }
 
-// --- Archive (search drawer) -------------------------------------------------
+// --- Archive: the "Carte" tab ---------------------------------------------------
 /**
- * Wire up the card archive. `onInsert(name)` is called when the user picks a
- * card to use in the question.
+ * Wire the card search. `onInsert(name)` is called when the user picks a card
+ * to use in the question. Returns { activate, search } for the archive tabs.
  */
 export function initCardBrowser({ domains = {}, types = [], onInsert }) {
-  const drawer = document.getElementById("cardBrowser");
   const search = document.getElementById("cardSearch");
   const typeSel = document.getElementById("typeFilter");
   const domainBox = document.getElementById("domainFilters");
@@ -138,15 +131,15 @@ export function initCardBrowser({ domains = {}, types = [], onInsert }) {
     const id = ++seq;
     const params = new URLSearchParams({ q: search.value, domain, type: typeSel.value, limit });
     try {
-      const data = await (await fetch(`/api/cards?${params}`)).json();
+      const data = await getJSON(`/api/cards?${params}`);
       if (id !== seq) return; // a newer search already started
       count.textContent = data.total
         ? `${data.total} ${data.total === 1 ? "carta" : "carte"}${data.total > data.cards.length ? ` · mostrate ${data.cards.length}` : ""}`
         : "Nessuna carta trovata.";
       results.innerHTML = data.cards.map((c) => cardTileHtml(c)).join("");
       more.hidden = data.total <= data.cards.length;
-    } catch {
-      if (id === seq) count.textContent = "Impossibile caricare le carte.";
+    } catch (err) {
+      if (id === seq && !(err instanceof LockedError)) count.textContent = "Impossibile caricare le carte.";
     }
   }
 
@@ -161,14 +154,18 @@ export function initCardBrowser({ domains = {}, types = [], onInsert }) {
   });
   results.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-insert]");
-    if (!btn) return;
-    onInsert(btn.dataset.insert);
-    drawer.close();
+    if (btn) onInsert(btn.dataset.insert);
   });
 
-  document.getElementById("openCards").addEventListener("click", () => {
-    drawer.showModal();
-    if (!results.childElementCount) refresh(true);
-    search.focus();
-  });
+  return {
+    activate() {
+      if (!results.childElementCount) refresh(true);
+      search.focus();
+    },
+    search(q) {
+      search.value = q;
+      refresh(true);
+      search.focus();
+    },
+  };
 }

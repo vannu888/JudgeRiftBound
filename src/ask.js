@@ -3,10 +3,10 @@
 
 import { ApiError } from "@google/genai";
 import { findCardsInConversation } from "./cards.js";
-import { sanitizeMessages, buildContents, streamJudge, HAS_API_KEY, MAX_MESSAGES, MAX_CHARS } from "./judge.js";
+import { sanitizeMessages, sanitizeGame, buildContents, streamJudge, HAS_API_KEY, MAX_MESSAGES, MAX_CHARS } from "./judge.js";
 
 const INACTIVITY_MS = Number(process.env.JUDGE_TIMEOUT_MS || 60000);
-// Each attempt resends the whole rulebook (~95k tokens) and the free tier allows
+// Each attempt resends the whole rulebook (~67k tokens) and the free tier allows
 // 250k input tokens/minute, so a single retry is the useful maximum.
 const MAX_RETRIES = 1;
 
@@ -21,21 +21,22 @@ function validationError(messages) {
   return null;
 }
 
-function errorMessage(err, hasKey) {
-  if (!hasKey) return "Chiave API non configurata sul server. Imposta GEMINI_API_KEY e riavvia.";
-  if (!(err instanceof ApiError)) return "Si è verificato un errore nel contattare il judge. Riprova.";
+/** User-facing error, plus `retryAfter` (seconds) when waiting will fix it. */
+function errorInfo(err, hasKey) {
+  if (!hasKey) return { message: "Chiave API non configurata sul server. Imposta GEMINI_API_KEY e riavvia." };
+  if (!(err instanceof ApiError)) return { message: "Si è verificato un errore nel contattare il judge. Riprova." };
   if (err.status === 429) {
-    const wait = /retry in ([\d.]+)s/i.exec(err.message)?.[1];
-    return (
-      "Limite del piano gratuito raggiunto (token al minuto): ogni domanda include tutto il regolamento. " +
-      (wait ? `Riprova tra circa ${Math.ceil(Number(wait))} secondi.` : "Attendi circa un minuto e riprova.")
-    );
+    const wait = Math.ceil(Number(/retry in ([\d.]+)s/i.exec(err.message)?.[1] ?? 60));
+    return {
+      message: `Limite del piano gratuito raggiunto (token al minuto): ogni domanda include tutto il regolamento. Riprova tra circa ${wait} secondi.`,
+      retryAfter: wait,
+    };
   }
-  if (isTransient(err)) return "Modello Gemini momentaneamente sovraccarico lato Google. Riprova tra qualche secondo.";
-  if (err.status === 404) return "Modello non disponibile: controlla JUDGE_MODEL nel file .env.";
+  if (isTransient(err)) return { message: "Modello Gemini momentaneamente sovraccarico lato Google. Riprova tra qualche secondo.", retryAfter: 5 };
+  if (err.status === 404) return { message: "Modello non disponibile: controlla JUDGE_MODEL nel file .env." };
   if (err.status === 401 || err.status === 403 || (err.status === 400 && /api key/i.test(err.message)))
-    return "Chiave API non valida o senza permessi. Controlla GEMINI_API_KEY.";
-  return `Errore API (${err.status}). Riprova.`;
+    return { message: "Chiave API non valida o senza permessi. Controlla GEMINI_API_KEY." };
+  return { message: `Errore API (${err.status}). Riprova.` };
 }
 
 const usageSummary = (u) =>
@@ -60,7 +61,7 @@ export function createAskHandler({ stream = streamJudge, hasKey = HAS_API_KEY, t
     }
 
     const cards = findCardsInConversation(messages);
-    const contents = buildContents(messages, cards);
+    const contents = buildContents(messages, cards, sanitizeGame(req.body?.game));
 
     res.status(200).set({
       "Content-Type": "text/event-stream; charset=utf-8",
@@ -133,11 +134,12 @@ export function createAskHandler({ stream = streamJudge, hasKey = HAS_API_KEY, t
     } catch (err) {
       if (!clientGone && !res.writableEnded) {
         if (!timedOut) console.error("[judge] errore:", err);
-        send("error", {
-          message: timedOut
-            ? "Il judge non ha risposto in tempo (Gemini lento o sovraccarico). Riprova."
-            : errorMessage(err, hasKey),
-        });
+        send(
+          "error",
+          timedOut
+            ? { message: "Il judge non ha risposto in tempo (Gemini lento o sovraccarico). Riprova." }
+            : errorInfo(err, hasKey),
+        );
       }
     } finally {
       clearTimeout(idleTimer);

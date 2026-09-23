@@ -8,9 +8,18 @@ gratuita di Google Gemini**.
 - 🧠 Il judge ragiona sulle regole complete (le Core Rules sono nel prompt di sistema).
 - 🃏 **Database di ~945 carte**: quando nomini una carta, il suo testo ufficiale (costo, Might,
   keyword, errata, ban) viene passato al judge — per la Golden Rule il testo della carta prevale.
-- 🔎 **Archivio carte** con ricerca, filtri per dominio e tipo, e inserimento nella domanda.
-- 💬 Chat con risposte in **streaming**, ragionamento del judge visibile e follow-up.
-- 📖 Ogni verdetto cita i **numeri delle regole** applicate, così puoi verificare.
+- 📖 Ogni verdetto cita i **numeri delle regole**: toccali per leggere il **testo ufficiale** della
+  regola, con la sezione di appartenenza e le sotto-regole. Anche le keyword delle carte
+  (Ganking, Deflect…) aprono la loro regola.
+- 🔎 **Archivio** con due schede: **Carte** (ricerca, filtri per dominio e tipo, inserimento nella
+  domanda) e **Regole** (ricerca nel regolamento per parola o numero).
+- 🏆 **Segnapunti** per la partita con le regole ufficiali di punteggio (vedi sotto); se vuoi, il
+  judge conosce il punteggio quando gli fai una domanda.
+- 💬 Chat con risposte in **streaming**, ragionamento del judge visibile, follow-up, pulsante
+  **Stop**, **Rigenera**, **Copia** e **Condividi**.
+- 🕘 **Cronologia** delle ultime 30 conversazioni, salvata sul dispositivo (nessun dato sul server).
+- 📱 **Installabile** su iPhone come app (Safari → Condividi → Aggiungi a Home), con icona propria.
+- 🔒 **Password d'accesso** opzionale e limite di domande al minuto, per quando la metti online.
 - 🆓 Usa il **piano gratuito di Google Gemini** (nessuna carta di credito richiesta).
 
 ## Requisiti
@@ -60,11 +69,13 @@ dal repository GitHub:
 1. Crea un account su render.com (login con GitHub).
 2. **New → Web Service** → collega questo repository.
 3. Build command: `npm install` · Start command: `npm start`.
-4. In **Environment** aggiungi la variabile `GEMINI_API_KEY` con la tua chiave.
+4. In **Environment** aggiungi la variabile `GEMINI_API_KEY` con la tua chiave e, consigliato,
+   `ACCESS_PASSWORD` con una password a tua scelta: così solo chi la conosce può usare il judge
+   (e la tua quota gratuita).
 5. Deploy → ottieni un link `https://...onrender.com` da aprire su Safari e "Aggiungi a Home".
 
 > Il server usa già `process.env.PORT`, quindi funziona senza modifiche sulla maggior parte degli host.
-> Se il link è pubblico, valuta di aggiungere una password d'accesso.
+> La password va inserita una sola volta per dispositivo: poi resta ricordata.
 
 ## Come si usa
 
@@ -78,7 +89,33 @@ keyword. Più contesto dai, più preciso è il ruling. Se manca qualcosa, il jud
 Basta anche il nome del campione (`il mio Jinx…`, `l'Ahri dell'avversario`): il judge riceve tutte le sue
 versioni. Apostrofi e punteggiatura sono facoltativi (`Kaisa`, `BF Sword`, `Megamech`). Sopra la
 risposta vedi le **carte considerate**: toccane una per leggerne il testo. Se non ricordi il nome
-esatto, apri **🃏 Carte**, cerca e premi **Usa nella domanda**.
+esatto, apri **📚 Archivio → Carte**, cerca e premi **Usa nella domanda**.
+
+I **numeri delle regole** nella risposta (es. `340.1`) si toccano per leggerne il testo ufficiale: se
+il judge citasse una regola che non esiste, l'app lo segnala. Sotto ogni risposta trovi **Copia**,
+**Condividi** e **Rigenera**; mentre il judge scrive, il pulsante di invio diventa **Stop**. Le
+conversazioni restano in **🕘 Cronologia** e, se ricarichi la pagina durante una partita, riprendi da
+dove eri.
+
+## Segnapunti
+
+Tocca **🏆 Punti** in alto:
+
+1. Scegli la modalità — **1v1 Duello** (8 punti, regola 480), **1v1 al meglio di 3** (481), **tutti
+   contro tutti** a 3 o 4 giocatori (482–483), **2v2 a squadre** (11 punti, 484) — e i nomi (il primo
+   sei tu). I punti per vincere si possono cambiare.
+2. Durante la partita segna ogni punto con **⚔ Conquista** o **🏰 Tenuta** (una volta per battlefield
+   per turno, 465); **＋1 Altro** per punti da altre fonti (es. effetti di carte) e **−1** per
+   correggere. **↶ Annulla** toglie l'ultima azione.
+3. Quando a un giocatore manca **un solo punto** compare *Punto vincente*: con una Tenuta lo prende
+   sempre, con una Conquista l'app chiede se in questo turno ha segnato **tutti** i battlefield —
+   altrimenti niente punto e si pesca 1 carta (466.1.b).
+4. La vittoria viene annunciata secondo la regola 467; nel meglio di 3 si passa alla partita
+   successiva tenendo il conto delle vittorie.
+
+Il punteggio resta salvato sul telefono anche se chiudi l'app e compare nel pulsante in alto. Con
+**"Il judge conosce il punteggio"** attivo, ogni domanda include lo stato della partita, così il judge
+può rispondere a domande come *"se conquisto adesso, vinco?"*.
 
 ## Database delle carte
 
@@ -108,25 +145,34 @@ Opzioni nel file `.env` (vedi `.env.example`):
 | `JUDGE_MODEL`           | `gemini-flash-latest` | `gemini-flash-lite-latest` = limiti più alti; `gemini-pro-latest` = più bravo; oppure una versione fissa (es. `gemini-3.6-flash`). |
 | `JUDGE_THINKING_BUDGET` | `-1`                  | Ragionamento: `-1` automatico, `0` disattivato, oppure un numero di token. |
 | `JUDGE_TIMEOUT_MS`      | `60000`               | Dopo quanti ms senza risposta da Gemini la richiesta viene interrotta. |
+| `ACCESS_PASSWORD`       | —                     | Se impostata, l'app chiede questa password prima di rispondere (consigliata online). |
+| `ASK_RATE_LIMIT`        | `10`                  | Domande al minuto per dispositivo/IP (`0` = nessun limite).          |
+| `TRUST_PROXY`           | —                     | Metti `1` se il server sta dietro un proxy (su Render è automatico). |
 
 ## Struttura del progetto
 
 ```
 JudgeRiftBound/
-├── server.js                     # server Express: rotte /api/health, /api/cards, /api/ask
+├── server.js                     # server Express: /api/health, /api/cards, /api/rules, /api/ask
 ├── src/
 │   ├── judge.js                  # prompt del judge + chiamata Gemini (streaming, thinking)
 │   ├── ask.js                    # risposta in streaming (SSE): retry, timeout, errori
-│   └── cards.js                  # database carte: riconoscimento, ricerca, formattazione
+│   ├── rules.js                  # regolamento: compattazione, indice, ricerca
+│   ├── cards.js                  # database carte: riconoscimento, ricerca, formattazione
+│   └── security.js               # password d'accesso e limite di richieste
 ├── scripts/fetch-cards.mjs       # aggiorna data/cards.json (npm run cards)
 ├── data/
 │   ├── riftbound-core-rules.txt  # testo integrale delle Core Rules
 │   └── cards.json                # dati funzionali delle carte
 ├── public/                       # interfaccia web (HTML/CSS/JS, nessun build step)
-│   ├── index.html
-│   ├── styles.css
-│   ├── app.js                    # chat e streaming
+│   ├── index.html · styles.css · manifest.webmanifest · icons/
+│   ├── app.js                    # avvio, domande e streaming
+│   ├── chat.js                   # messaggi, azioni (copia, condividi, rigenera)
+│   ├── rules.js                  # testo delle regole e ricerca nel regolamento
 │   ├── cards.js                  # archivio, chip e dettaglio carte
+│   ├── history.js                # cronologia salvata sul dispositivo
+│   ├── score.js · score-model.js # segnapunti (interfaccia e regole di punteggio)
+│   ├── api.js                    # chiamate al server (e blocco con password)
 │   └── markdown.js               # rendering sicuro di risposte e simboli di gioco
 └── test/                         # test automatici (npm test)
 ```
@@ -137,9 +183,9 @@ JudgeRiftBound/
 npm test
 ```
 
-Verificano il riconoscimento delle carte, la compattazione del regolamento, il rendering sicuro, lo
-scraper e l'intero flusso della chat (con Gemini simulato: streaming, retry, limiti, timeout,
-compressione).
+Verificano il riconoscimento delle carte, il regolamento (compattazione, ricerca, sezioni), le
+regole di punteggio del segnapunti, il rendering sicuro, la password e i limiti, lo scraper e
+l'intero flusso della chat (con Gemini simulato: streaming, retry, limiti, timeout, compressione).
 
 ## Prestazioni
 
@@ -160,4 +206,4 @@ compressione).
 - Questo strumento si basa sulle Core Rules e **non sostituisce** un judge certificato: in un torneo
   ufficiale la parola finale spetta all'arbitro presente.
 - La chiave API resta **solo sul server** (nel file `.env`, escluso da Git) e non viene mai esposta al
-  browser.
+  browser. Cronologia e segnapunti restano solo sul tuo dispositivo.

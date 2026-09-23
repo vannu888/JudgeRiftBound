@@ -39,7 +39,7 @@ function symbolHtml(inner) {
   if (low === "might") return `<span class="sym sym-might" title="Might">⚔</span>`;
   if (low === "rune") return `<span class="sym sym-rune" title="Rune di qualsiasi dominio">◆</span>`;
   if (low === "tap") return `<span class="sym sym-tap" title="Tap (esaurisci)">↷</span>`;
-  return `<span class="kw">${cap(inner)}</span>`;
+  return `<button type="button" class="kw" data-kw="${inner}" title="Leggi la regola">${cap(inner)}</button>`;
 }
 
 /** Replace [Keyword]/[Assault 2]/[1]/[Fury]… in already-escaped text with badges. */
@@ -49,8 +49,20 @@ export function withSymbols(escaped) {
   );
 }
 
+/**
+ * Rule citations ("309.1.a", "(154)", "regola 340") as buttons that open the
+ * official text. A bare 3-digit number only counts in a citation context, so
+ * "100 carte" or "250.000 token" stay plain text.
+ */
+export function withRuleRefs(escaped) {
+  return escaped.replace(/(?<![\w.#&;/-])\d{3}(?:\.\d{1,2}(?:\.[0-9a-z]{1,2})*)?(?![\w-]|\.\d)/g, (id, at, str) => {
+    if (!id.includes(".") && !/(\(|\*\*|regol[ae] |rules? |\d, )$/i.test(str.slice(Math.max(0, at - 8), at))) return id;
+    return `<a class="rule-ref" href="#regola-${id}" data-rule="${id}" title="Leggi la regola ${id}">${id}</a>`;
+  });
+}
+
 function inline(s) {
-  return withSymbols(escapeHtml(s))
+  return withSymbols(withRuleRefs(escapeHtml(s)))
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");

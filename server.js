@@ -5,41 +5,83 @@ import express from "express";
 import compression from "compression";
 import { MODEL, HAS_API_KEY } from "./src/judge.js";
 import { CARDS, DOMAINS, CARDS_UPDATED_AT, searchCards } from "./src/cards.js";
+import { RULE_COUNT, getRule, searchRules } from "./src/rules.js";
 import { createAskHandler } from "./src/ask.js";
+import { createAccessControl, rateLimit } from "./src/security.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
 const CARD_TYPES = [...new Set(CARDS.map((c) => c.type).filter(Boolean))].sort();
 
-/** Build the app; `askOptions` lets tests swap Gemini for a fake stream. */
-export function createApp(askOptions) {
+const str = (v, max = 100) => (typeof v === "string" ? v.slice(0, max) : "");
+const clamp = (v, fallback, max) => Math.min(Math.max(Number(v) || fallback, 1), max);
+
+/**
+ * Build the app. Every option defaults to the environment:
+ * - ask: overrides for the judge handler (tests swap Gemini for a fake stream)
+ * - password: ACCESS_PASSWORD — protects the API when the app is online
+ * - askPerMinute: ASK_RATE_LIMIT — questions per minute per IP (0 = unlimited)
+ */
+export function createApp({
+  ask,
+  password = process.env.ACCESS_PASSWORD,
+  askPerMinute = Number(process.env.ASK_RATE_LIMIT ?? 10),
+} = {}) {
   const app = express();
   app.disable("x-powered-by");
+  // Behind a host's proxy (Render sets RENDER) the client IP is in X-Forwarded-For.
+  if (process.env.TRUST_PROXY || process.env.RENDER) app.set("trust proxy", 1);
   // gzip pages and JSON (~70% smaller on mobile data), but never the SSE stream
   // of /api/ask: compressing it would buffer the answer instead of streaming it.
   app.use(compression({ filter: (req, res) => req.path !== "/api/ask" && compression.filter(req, res) }));
   app.use(express.json({ limit: "1mb" }));
   app.use(express.static(path.join(here, "public")));
 
-  app.get("/api/health", (_req, res) => {
+  const access = createAccessControl(password);
+
+  app.get("/api/health", (req, res) => {
     res.json({
       ok: true,
+      locked: !access.authorized(req),
       model: MODEL,
       hasApiKey: HAS_API_KEY,
       cards: CARDS.length,
+      rules: RULE_COUNT,
       cardsUpdatedAt: CARDS_UPDATED_AT,
       cardTypes: CARD_TYPES,
       domains: DOMAINS,
     });
   });
 
+  app.post(
+    "/api/login",
+    rateLimit({ windowMs: 15 * 60_000, max: 10, message: (s) => `Troppi tentativi: riprova tra ${Math.ceil(s / 60)} minuti.` }),
+    access.login,
+  );
+
+  // Everything below needs the password, when one is configured.
+  app.use("/api", access.guard);
+
   app.get("/api/cards", (req, res) => {
-    const str = (v) => (typeof v === "string" ? v.slice(0, 100) : "");
-    const limit = Math.min(Math.max(Number(req.query.limit) || 60, 1), 200);
-    res.json(searchCards({ q: str(req.query.q), domain: str(req.query.domain), type: str(req.query.type), limit }));
+    const { q, domain, type, limit } = req.query;
+    res.json(searchCards({ q: str(q), domain: str(domain), type: str(type), limit: clamp(limit, 60, 200) }));
   });
 
-  app.post("/api/ask", createAskHandler(askOptions));
+  app.get("/api/rules", (req, res) => {
+    res.json(searchRules(str(req.query.q), clamp(req.query.limit, 30, 100)));
+  });
+
+  app.get("/api/rules/:ref", (req, res) => {
+    const rule = getRule(str(req.params.ref, 60));
+    if (rule) res.json(rule);
+    else res.status(404).json({ error: "Regola non trovata nel regolamento." });
+  });
+
+  app.post(
+    "/api/ask",
+    rateLimit({ windowMs: 60_000, max: askPerMinute, message: (s) => `Troppe domande in poco tempo: riprova tra ${s} secondi.` }),
+    createAskHandler(ask),
+  );
   return app;
 }
 
@@ -47,10 +89,9 @@ export function createApp(askOptions) {
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   createApp().listen(PORT, () => {
     console.log(`\n⚖️  Judge Rift Bound in ascolto su http://localhost:${PORT}`);
-    console.log(`   Modello: ${MODEL}  |  Carte: ${CARDS.length}  |  GEMINI_API_KEY: ${HAS_API_KEY ? "trovata" : "MANCANTE"}`);
-    if (!HAS_API_KEY) {
-      console.log("   ⚠️  Crea una chiave GRATUITA su https://aistudio.google.com/apikey e mettila in .env");
-    }
+    console.log(`   Modello: ${MODEL}  |  Regole: ${RULE_COUNT}  |  Carte: ${CARDS.length}  |  GEMINI_API_KEY: ${HAS_API_KEY ? "trovata" : "MANCANTE"}`);
+    if (process.env.ACCESS_PASSWORD) console.log("   🔒 Accesso protetto da password (ACCESS_PASSWORD)");
+    if (!HAS_API_KEY) console.log("   ⚠️  Crea una chiave GRATUITA su https://aistudio.google.com/apikey e mettila in .env");
     console.log("");
   });
 }

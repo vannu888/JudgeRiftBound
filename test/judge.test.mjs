@@ -1,39 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import { compactRules, sanitizeMessages, buildContents } from "../src/judge.js";
-
-const words = (s) => s.replace(/[​-‍﻿]/g, "").split(/\s+/).filter(Boolean).join(" ");
-
-test("compactRules removes the PDF layout without losing words", () => {
-  const layout = [
-    "135.4.a.                The presence of text, rules, Keywords, and other effects can still be",
-    "                        referenced by other game effects.",
-    "                  See rule 716. Attachment for more information.",
-    "461.4                 The following Task becomes Outstanding:",
-    "​",
-    "Examples:",
-    "A unit with 3 or less Might is no longer a legal target",
-    "",
-    "Something that's exhausted is no longer a legal target.",
-  ].join("\n");
-  const out = compactRules(layout);
-  assert.equal(words(out), words(layout));
-  assert.deepEqual(out.trimEnd().split("\n"), [
-    "135.4.a. The presence of text, rules, Keywords, and other effects can still be referenced by other game effects.",
-    "See rule 716. Attachment for more information.",
-    "461.4 The following Task becomes Outstanding:",
-    "Examples: A unit with 3 or less Might is no longer a legal target",
-    "",
-    "Something that's exhausted is no longer a legal target.",
-  ]);
-});
-
-test("the shipped rules file is already compact and compaction is idempotent", () => {
-  const rules = fs.readFileSync(new URL("../data/riftbound-core-rules.txt", import.meta.url), "utf8");
-  assert.equal(compactRules(rules), rules);
-  assert.match(rules, /^002\. Card text supersedes rules text\./m);
-});
+import { sanitizeMessages, buildContents } from "../src/judge.js";
 
 test("messages are sanitized and cards go into the latest question", () => {
   const messages = sanitizeMessages([
@@ -51,4 +18,24 @@ test("messages are sanitized and cards go into the latest question", () => {
   assert.equal(contents[0].parts.length, 1);
   assert.match(contents[2].parts[0].text, /Falling Comet/);
   assert.equal(contents[2].parts[1].text, "Domanda del giocatore:\nseconda domanda");
+});
+
+test("the scoreboard state is validated and attached to the latest question", async () => {
+  const { sanitizeGame } = await import("../src/judge.js");
+  assert.equal(sanitizeGame(null), null);
+  assert.equal(sanitizeGame({ mode: "chess", victory: 8, players: [{}, {}] }), null);
+  assert.equal(sanitizeGame({ mode: "duel", victory: 8, players: [{ name: "Solo", points: 1 }] }), null);
+  const game = sanitizeGame({
+    mode: "duel",
+    victory: 8,
+    players: [{ name: "Tu [x]\nhack", points: 7 }, { name: "", points: 300 }],
+  });
+  assert.deepEqual(game.players, [
+    { name: "Tu  x  hack", points: 7, wins: 0 },
+    { name: "Giocatore", points: 0, wins: 0 },
+  ]);
+
+  const contents = buildContents([{ role: "user", content: "Posso vincere conquistando?" }], [], game);
+  assert.match(contents[0].parts[0].text, /^\[STATO PARTITA[^\n]*Punti per vincere: 8\. Punteggio: Tu {2}x {2}hack 7 · Giocatore 0\./);
+  assert.equal(contents[0].parts[1].text, "Domanda del giocatore:\nPosso vincere conquistando?");
 });

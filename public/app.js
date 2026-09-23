@@ -1,9 +1,10 @@
 import { renderMarkdown, setDomainColors } from "./markdown.js";
+import { request, setLockedHandler, LockedError } from "./api.js";
 import { initCardBrowser, renderCardChips } from "./cards.js";
-
-/** @type {{role: "user"|"assistant", content: string}[]} */
-let history = [];
-let busy = false;
+import { openRule, initRulesPanel } from "./rules.js";
+import { addUserMessage, createJudgeMessage, finishJudgeMessage, addNote, scrollDown, toast } from "./chat.js";
+import { newSession, saveSession, listSessions, initHistory, renderRecent } from "./history.js";
+import { initScoreboard, gameContext } from "./score.js";
 
 const $ = (id) => document.getElementById(id);
 const chatEl = $("chat");
@@ -11,35 +12,121 @@ const welcomeEl = $("welcome");
 const formEl = $("askForm");
 const inputEl = $("input");
 const sendBtn = $("send");
+const archive = $("archive");
 
-// --- Startup: server status, stats, card archive ------------------------------
-fetch("/api/health")
-  .then((r) => r.json())
-  .then((h) => {
-    if (!h.hasApiKey) $("apiWarning").hidden = false;
-    setDomainColors(h.domains);
-    showStats(h);
-    initCardBrowser({ domains: h.domains, types: h.cardTypes, onInsert: insertCardName });
-  })
-  .catch(() => {});
+/** A session updated this recently is reopened automatically (e.g. Safari reloaded mid-game). */
+const RESTORE_WINDOW_MS = 3 * 3600 * 1000;
 
-function showStats(h) {
-  const stats = $("stats");
-  const items = [["📖", "Core Rules 30/03/2026"]];
-  if (h.cards) items.push(["🃏", `${h.cards} carte`]);
-  items.push(["⚡", "Gemini"]);
-  stats.innerHTML = items.map(([i, t]) => `<span><span aria-hidden="true">${i}</span> ${t}</span>`).join("");
-  stats.hidden = false;
+let session = newSession();
+let busy = false;
+let controller = null;
+let panels = null; // archive tabs, ready once the card data is known
+
+// --- Dialogs: close with ✕ or by tapping outside --------------------------------
+for (const dlg of document.querySelectorAll("dialog")) {
+  dlg.addEventListener("click", (e) => {
+    if (e.target === dlg || e.target.closest("[data-close]")) dlg.close();
+  });
 }
 
+// --- Rule numbers and keywords are clickable everywhere --------------------------
+document.addEventListener("click", (e) => {
+  const ref = e.target.closest("[data-rule], [data-kw]");
+  if (ref) {
+    e.preventDefault(); // rule citations are links, so they wrap like text
+    openRule(ref.dataset.rule ?? ref.dataset.kw);
+    return;
+  }
+  const search = e.target.closest("[data-search-rules]");
+  if (search) {
+    $("ruleDialog").close();
+    openArchive("rules", search.dataset.searchRules);
+  }
+});
+
+// --- Archive (cards and rules) ---------------------------------------------------
+let archiveTab = "cards";
+function openArchive(tab = archiveTab, query) {
+  archiveTab = tab;
+  for (const b of archive.querySelectorAll("[role=tab]")) b.setAttribute("aria-selected", String(b.dataset.tab === tab));
+  for (const p of archive.querySelectorAll("[data-panel]")) p.hidden = p.dataset.panel !== tab;
+  if (!archive.open) archive.showModal();
+  const panel = panels?.[tab];
+  if (!panel) return;
+  if (query === undefined) panel.activate();
+  else panel.search(query);
+}
+archive.addEventListener("click", (e) => {
+  const tab = e.target.closest("[role=tab]");
+  if (tab) openArchive(tab.dataset.tab);
+});
+$("openArchive").addEventListener("click", () => openArchive());
+
 function insertCardName(name) {
+  archive.close();
   const v = inputEl.value.trimEnd();
   inputEl.value = v ? `${v} ${name} ` : `${name} `;
   autoGrow();
   inputEl.focus();
 }
 
-// --- Composer ---------------------------------------------------------------
+// --- Startup and password gate -----------------------------------------------------
+setLockedHandler(() => {
+  $("lock").hidden = false;
+  $("lockPassword").focus();
+});
+
+$("lockForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const error = $("lockError");
+  const res = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: $("lockPassword").value }),
+  }).catch(() => null);
+  if (res?.ok) {
+    $("lock").hidden = true;
+    $("lockPassword").value = "";
+    error.hidden = true;
+    start();
+  } else {
+    error.textContent = (await res?.json().catch(() => null))?.error ?? "Connessione non riuscita.";
+    error.hidden = false;
+  }
+});
+
+async function start() {
+  let health;
+  try {
+    health = await (await fetch("/api/health")).json();
+  } catch {
+    return;
+  }
+  if (health.locked) {
+    $("lock").hidden = false;
+    $("lockPassword").focus();
+    return;
+  }
+  $("apiWarning").hidden = health.hasApiKey;
+  setDomainColors(health.domains);
+  const stats = [["📖", `${health.rules} regole`], ["🃏", `${health.cards} carte`], ["⚡", "Gemini"]];
+  $("stats").innerHTML = stats.map(([i, t]) => `<span><span aria-hidden="true">${i}</span> ${t}</span>`).join("");
+  $("stats").hidden = false;
+  panels ??= {
+    cards: initCardBrowser({ domains: health.domains, types: health.cardTypes, onInsert: insertCardName }),
+    rules: initRulesPanel(),
+  };
+}
+
+// --- Composer ------------------------------------------------------------------
+// The long hint does not fit on one line on a phone.
+const narrow = matchMedia("(max-width: 600px)");
+const setPlaceholder = () => {
+  inputEl.placeholder = narrow.matches ? "Descrivi la situazione…" : "Descrivi la situazione (nomi delle carte in inglese)…";
+};
+setPlaceholder();
+narrow.addEventListener("change", setPlaceholder);
+
 function autoGrow() {
   inputEl.style.height = "auto";
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 180)}px`;
@@ -54,121 +141,74 @@ inputEl.addEventListener("keydown", (e) => {
 
 for (const btn of document.querySelectorAll(".example")) {
   btn.addEventListener("click", () => {
-    // Only the question text, not the decorative icon.
-    inputEl.value = btn.lastElementChild.textContent.trim().replace(/\s+/g, " ");
+    inputEl.value = btn.lastElementChild.textContent.trim().replace(/\s+/g, " "); // not the icon
     formEl.requestSubmit();
   });
 }
 
-$("newChat").addEventListener("click", () => {
-  if (busy) return;
-  history = [];
-  for (const n of chatEl.querySelectorAll(".msg")) n.remove();
-  welcomeEl.hidden = false;
+function setBusy(state) {
+  busy = state;
+  sendBtn.classList.toggle("stop", state);
+  sendBtn.title = state ? "Ferma la risposta" : "Invia (Invio)";
+  sendBtn.querySelector(".send-label").textContent = state ? "Stop" : "Chiedi al judge";
+  sendBtn.querySelector(".send-icon").textContent = state ? "■" : "➤";
+}
+
+formEl.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (busy) {
+    // The button is "Stop" while the judge answers; Enter must not stop it by accident.
+    if (e.submitter === sendBtn) controller?.abort();
+    else toast("Attendi la risposta (o premi Stop)");
+    return;
+  }
+  const text = inputEl.value.trim();
+  if (!text) return;
+  welcomeEl.hidden = true;
+  addUserMessage(text);
+  session.messages.push({ role: "user", content: text });
+  saveSession(session); // kept even if the page reloads before the answer
   inputEl.value = "";
   autoGrow();
+  ask();
+});
+
+// --- Sessions ------------------------------------------------------------------
+function showSession(s) {
+  if (busy) controller?.abort();
+  session = s;
+  for (const n of chatEl.querySelectorAll(".msg")) n.remove();
+  welcomeEl.hidden = s.messages.length > 0;
+  let question = "";
+  for (const m of s.messages) {
+    if (m.role === "user") {
+      addUserMessage(m.content);
+      question = m.content;
+    } else {
+      const ui = createJudgeMessage();
+      renderCardChips(ui.cards, m.cards ?? []);
+      ui.content.innerHTML = renderMarkdown(m.content);
+      finishJudgeMessage(ui, { answer: m.content, question, onRetry: regenerate });
+    }
+  }
+  if (s.messages.at(-1)?.role === "user") {
+    // The page was closed before the answer arrived.
+    const ui = createJudgeMessage();
+    addNote(ui, "La risposta non è stata completata.", "status");
+    finishJudgeMessage(ui, { onRetry: regenerate });
+  }
+  if (!s.messages.length) renderRecent($("recent"), showSession);
+  scrollDown(true);
+}
+
+$("newChat").addEventListener("click", () => {
+  showSession(newSession());
   inputEl.focus();
 });
 
-formEl.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const text = inputEl.value.trim();
-  if (busy || !text) return;
-  welcomeEl.hidden = true;
-  addUserMessage(text);
-  history.push({ role: "user", content: text });
-  inputEl.value = "";
-  autoGrow();
-  await askJudge();
-});
+initHistory({ onOpen: showSession, current: () => session.id });
 
-function setBusy(state) {
-  busy = state;
-  sendBtn.disabled = state;
-  inputEl.disabled = state;
-}
-
-// --- Messages ---------------------------------------------------------------
-/** Follow the conversation, unless the user scrolled up to read (force = new message). */
-function scrollDown(force = false) {
-  const doc = document.scrollingElement;
-  if (force || doc.scrollHeight - doc.scrollTop - doc.clientHeight < 240) doc.scrollTop = doc.scrollHeight;
-}
-
-function addUserMessage(text) {
-  const el = document.createElement("div");
-  el.className = "msg user";
-  el.innerHTML = `
-    <div class="avatar" aria-hidden="true">🧑</div>
-    <div class="stack">
-      <div class="role">Tu</div>
-      <div class="bubble"></div>
-    </div>`;
-  el.querySelector(".bubble").textContent = text;
-  chatEl.append(el);
-  scrollDown(true);
-}
-
-function createJudgeMessage() {
-  const el = document.createElement("div");
-  el.className = "msg judge";
-  el.innerHTML = `
-    <div class="avatar" aria-hidden="true">⚖️</div>
-    <div class="stack">
-      <div class="role">Judge</div>
-      <div class="bubble">
-        <div class="cards-used" hidden></div>
-        <details class="reasoning" hidden>
-          <summary><span class="spark" aria-hidden="true">✦</span> Ragionamento del judge</summary>
-          <div class="reasoning-body"></div>
-        </details>
-        <div class="content cursor"><span class="thinking">Il judge sta consultando le regole…</span></div>
-        <div class="msg-foot" hidden>
-          <span class="usage"></span>
-          <button type="button" class="chip-btn copy">Copia risposta</button>
-        </div>
-      </div>
-    </div>`;
-  chatEl.append(el);
-  scrollDown(true);
-  const q = (s) => el.querySelector(s);
-  return {
-    cards: q(".cards-used"),
-    reasoning: q(".reasoning"),
-    reasoningBody: q(".reasoning-body"),
-    content: q(".content"),
-    foot: q(".msg-foot"),
-    usage: q(".usage"),
-    copy: q(".copy"),
-  };
-}
-
-function showError(ui, message) {
-  const p = document.createElement("p");
-  p.className = "error-note";
-  p.textContent = `⚠️ ${message}`;
-  ui.content.querySelector(".thinking")?.remove();
-  ui.content.append(p);
-  scrollDown();
-}
-
-function showFooter(ui, usage, answer) {
-  if (usage) {
-    ui.usage.textContent = `${usage.input_tokens.toLocaleString("it-IT")} token in · ${usage.output_tokens.toLocaleString("it-IT")} out`;
-  }
-  ui.copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(answer);
-      ui.copy.textContent = "Copiata ✓";
-    } catch {
-      ui.copy.textContent = "Copia non riuscita";
-    }
-    setTimeout(() => (ui.copy.textContent = "Copia risposta"), 1800);
-  });
-  ui.foot.hidden = false;
-}
-
-// --- Ask the judge (Server-Sent Events over fetch) ----------------------------
+// --- Asking the judge (Server-Sent Events over fetch) --------------------------
 /** Yield every complete SSE event in `buffer.text`, leaving any partial one in place. */
 function* parseEvents(buffer) {
   let sep;
@@ -185,16 +225,36 @@ function* parseEvents(buffer) {
     try {
       yield { event, data: data ? JSON.parse(data) : {} };
     } catch {
-      /* ignore malformed event */
+      /* ignore a malformed event */
     }
   }
 }
 
-async function askJudge() {
+/** Drop the last answer (if any) and ask the same question again. */
+function regenerate() {
+  if (busy) return;
+  if (session.messages.at(-1)?.role === "assistant") session.messages.pop();
+  if (session.messages.at(-1)?.role !== "user") return;
+  const last = chatEl.lastElementChild;
+  if (last?.classList.contains("judge")) last.remove();
+  saveSession(session);
+  ask();
+}
+
+async function ask() {
   setBusy(true);
+  controller = new AbortController();
   const ui = createJudgeMessage();
+  ui.content.innerHTML = `<span class="thinking">Il judge sta consultando le regole…</span>`;
+  ui.content.classList.add("cursor");
+
   let answer = "";
   let reasoning = "";
+  let cards = [];
+  let usage = null;
+  let error = "";
+  let retryAfter = 0;
+  let stopped = false;
 
   // Gemini streams many small chunks: repaint at most once per animation frame.
   let frame = 0;
@@ -214,70 +274,88 @@ async function askJudge() {
   };
 
   try {
-    const res = await fetch("/api/ask", {
+    const res = await request("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: history }),
+      body: JSON.stringify({
+        messages: session.messages.map(({ role, content }) => ({ role, content })),
+        game: gameContext(),
+      }),
+      signal: controller.signal,
     });
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({}));
-      showError(ui, err.error || "Errore nel contattare il judge.");
-      return;
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    const buffer = { text: "" };
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer.text += decoder.decode(value, { stream: true });
-
-      for (const { event, data } of parseEvents(buffer)) {
-        switch (event) {
-          case "cards":
-            renderCardChips(ui.cards, data.cards ?? []);
-            scrollDown();
-            break;
-          case "reasoning":
-            reasoning += data.text;
-            ui.reasoning.hidden = false;
-            if (!answer) ui.reasoning.open = true; // show the thinking live
-            schedule();
-            break;
-          case "answer":
-            if (!answer) ui.reasoning.open = false; // collapse once the verdict starts
-            answer += data.text;
-            schedule();
-            break;
-          case "retry": // server restarts after a transient error: drop partial output
-            flush();
-            reasoning = "";
-            answer = "";
-            ui.reasoningBody.textContent = "";
-            ui.content.innerHTML = `<span class="thinking">Gemini è sovraccarico, riprovo…</span>`;
-            break;
-          case "error":
-            flush(); // paint pending text first, so it can't overwrite the error
-            showError(ui, data.message);
-            break;
-          case "done":
-            flush();
-            if (answer) showFooter(ui, data.usage, answer);
-            break;
+      error = err.error || "Errore nel contattare il judge.";
+      retryAfter = err.retryAfter ?? 0;
+    } else {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      const buffer = { text: "" };
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer.text += decoder.decode(value, { stream: true });
+        for (const { event, data } of parseEvents(buffer)) {
+          switch (event) {
+            case "cards":
+              cards = data.cards ?? [];
+              renderCardChips(ui.cards, cards);
+              scrollDown();
+              break;
+            case "reasoning":
+              reasoning += data.text;
+              ui.reasoning.hidden = false;
+              if (!answer) ui.reasoning.open = true; // show the thinking live
+              schedule();
+              break;
+            case "answer":
+              if (!answer) ui.reasoning.open = false; // collapse once the verdict starts
+              answer += data.text;
+              schedule();
+              break;
+            case "retry": // the server restarts after a transient error: drop partial output
+              flush();
+              reasoning = "";
+              answer = "";
+              ui.reasoningBody.textContent = "";
+              ui.content.innerHTML = `<span class="thinking">Gemini è sovraccarico, riprovo…</span>`;
+              break;
+            case "error":
+              error = data.message;
+              retryAfter = data.retryAfter ?? 0;
+              break;
+            case "done":
+              usage = data.usage;
+              break;
+          }
         }
       }
     }
-    if (answer.trim()) history.push({ role: "assistant", content: answer });
   } catch (err) {
-    console.error(err);
-    flush();
-    showError(ui, "Connessione interrotta. Riprova.");
-  } finally {
-    flush();
-    ui.content.classList.remove("cursor");
-    ui.content.querySelector(".thinking")?.remove();
-    setBusy(false);
-    inputEl.focus();
+    if (err.name === "AbortError") stopped = true;
+    else if (err instanceof LockedError) error = "Accesso protetto: inserisci la password e riprova.";
+    else error = "Connessione interrotta. Riprova.";
   }
+
+  flush(); // paint pending text first, so nothing overwrites the notes below
+  ui.content.classList.remove("cursor");
+  ui.content.querySelector(".thinking")?.remove();
+  if (answer.trim()) {
+    session.messages.push({ role: "assistant", content: answer, cards });
+    saveSession(session);
+  }
+  if (stopped) addNote(ui, "⏹ Risposta interrotta.", "status");
+  if (error) addNote(ui, `⚠️ ${error}`);
+  const question = session.messages.findLast((m) => m.role === "user")?.content ?? "";
+  finishJudgeMessage(ui, { answer, question, usage, retryAfter, onRetry: regenerate });
+  controller = null;
+  setBusy(false);
+  inputEl.focus({ preventScroll: true });
 }
+
+// --- Go ----------------------------------------------------------------------
+initScoreboard();
+start();
+const last = listSessions()[0];
+if (last && Date.now() - last.updatedAt < RESTORE_WINDOW_MS) showSession(last);
+else renderRecent($("recent"), showSession);

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderMarkdown, renderCardText, withSymbols } from "../public/markdown.js";
+import { renderMarkdown, renderCardText, withSymbols, withRuleRefs } from "../public/markdown.js";
 
 test("HTML in answers is escaped", () => {
   const html = renderMarkdown('Testo <script>alert(1)</script> e <img src=x onerror="y">');
@@ -22,8 +22,8 @@ test("game symbols become badges", () => {
   assert.match(withSymbols("+1 [Might]"), /sym-might/);
   assert.match(withSymbols("[2]"), /sym-num"[^>]*>2</);
   assert.match(withSymbols("[fury]"), /sym-dom[^>]*>Fury</);
-  assert.match(withSymbols("[GANKING]"), /class="kw">Ganking</);
-  assert.match(withSymbols("[ASSAULT 2]"), /class="kw">Assault 2</);
+  assert.match(withSymbols("[GANKING]"), /class="kw" data-kw="GANKING"[^>]*>Ganking</);
+  assert.match(withSymbols("[ASSAULT 2]"), /class="kw" data-kw="ASSAULT 2"[^>]*>Assault 2</);
 });
 
 test("rule numbers in brackets are left alone", () => {
@@ -32,4 +32,13 @@ test("rule numbers in brackets are left alone", () => {
 
 test("card text keeps line breaks and escapes HTML", () => {
   assert.equal(renderCardText("a\n\nb <c>"), "a<br>b &lt;c&gt;");
+});
+
+test("rule citations become buttons, other numbers stay text", () => {
+  const refs = (s) => [...withRuleRefs(s).matchAll(/data-rule="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(refs("Closed State (309.1) e Reaction (308.1.a, 309.1.a)."), ["309.1", "308.1.a", "309.1.a"]);
+  assert.deepEqual(refs("la regola 340 e (154, 155) e **466**"), ["340", "154", "155", "466"]);
+  assert.deepEqual(refs("prima 340.1, poi 309.1.a."), ["340.1", "309.1.a"]);
+  assert.deepEqual(refs("100 carte, 250.000 token, anno 2026, 6.5 punti, 3 carte, 100 punti"), []);
+  assert.match(renderMarkdown("Vedi (340.1)."), /<a class="rule-ref" href="#regola-340.1" data-rule="340.1"/);
 });

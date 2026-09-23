@@ -2,39 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ApiError } from "@google/genai";
-import { createApp } from "../server.js";
-
-async function withServer(askOptions, fn) {
-  const server = createApp(askOptions).listen(0);
-  await new Promise((r) => server.once("listening", r));
-  try {
-    return await fn(`http://127.0.0.1:${server.address().port}`);
-  } finally {
-    server.close();
-  }
-}
-
-async function ask(base, messages) {
-  const res = await fetch(`${base}/api/ask`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ messages }),
-  });
-  if (!res.headers.get("content-type")?.includes("event-stream")) return { status: res.status, json: await res.json() };
-  const events = (await res.text())
-    .split("\n\n")
-    .filter(Boolean)
-    .map((block) => ({
-      event: /^event: (.*)$/m.exec(block)[1],
-      data: JSON.parse(/^data: (.*)$/m.exec(block)[1]),
-    }));
-  return { status: res.status, events };
-}
-
-const part = (text, thought = false) => ({ candidates: [{ content: { parts: [{ text, thought }] } }] });
-const usage = { usageMetadata: { promptTokenCount: 97000, candidatesTokenCount: 300, thoughtsTokenCount: 100 } };
-const fakeStream = (chunks) => Promise.resolve((async function* () { yield* chunks; })());
-const question = [{ role: "user", content: "L'avversario gioca Falling Comet: posso rispondere?" }];
+import { withServer, ask, part, usage, fakeStream, question } from "./helpers.mjs";
 
 test("streams cards, reasoning, answer and usage", async () => {
   let sent;
@@ -106,6 +74,7 @@ test("rate limits tell the player how long to wait", async (t) => {
     const { events } = await ask(base, question);
     assert.equal(events.at(-1).event, "error");
     assert.match(events.at(-1).data.message, /Riprova tra circa 42 secondi/);
+    assert.equal(events.at(-1).data.retryAfter, 42);
   });
 });
 
@@ -167,5 +136,19 @@ test("pages and JSON are compressed, the answer stream is not", async () => {
     });
     assert.equal(res.headers.get("content-encoding"), null);
     assert.match(await res.text(), /event: done/);
+  });
+});
+
+test("rules can be looked up and searched", async () => {
+  await withServer({}, async (base) => {
+    const rule = await (await fetch(`${base}/api/rules/309.1.a`)).json();
+    assert.equal(rule.id, "309.1.a");
+    assert.ok(rule.parents.length > 0);
+    assert.equal((await (await fetch(`${base}/api/rules/Deflect`)).json()).id, "809");
+    const missing = await fetch(`${base}/api/rules/999.9`);
+    assert.equal(missing.status, 404);
+    assert.match((await missing.json()).error, /non trovata/);
+    const search = await (await fetch(`${base}/api/rules?q=${encodeURIComponent("chain resolves")}`)).json();
+    assert.equal(search.rules[0].id, "340.1");
   });
 });
