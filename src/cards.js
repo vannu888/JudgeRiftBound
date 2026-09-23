@@ -28,7 +28,7 @@ export const { cards: CARDS, domains: DOMAINS, updatedAt: CARDS_UPDATED_AT } = l
 export function normalize(s) {
   return String(s ?? "")
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/['’`]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
@@ -56,10 +56,19 @@ const SEARCH = new Map(
   ]),
 );
 
-// Match keys: every full card name, plus a champion alias ("Jinx" -> every
-// "Jinx, …" card) so "il mio Jinx" also finds the right cards.
-const KEYS = (() => {
-  const keys = CARDS.map((c) => ({ key: SEARCH.get(c.id).name, raw: c.name, ids: [c.id] }));
+const fold = (w) => w.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/** Word tokens with their original spelling and position: "l'Ahri" -> l, Ahri. */
+function tokenize(text) {
+  return Array.from(String(text).matchAll(/[\p{L}\p{M}\p{N}]+/gu), (m) => ({ word: fold(m[0]), raw: m[0], at: m.index }));
+}
+
+// Match index: every full card name, plus a champion alias ("Jinx" -> every
+// "Jinx, …" card) so "il mio Jinx" also works. Each name is indexed split at its
+// punctuation ("kai sa", "mega mech") and with it removed ("kaisa", "megamech"),
+// keyed by first word with the longest names first.
+const INDEX = (() => {
+  const entries = CARDS.map((c) => ({ raw: c.name, ids: [c.id], alias: false }));
   const champions = new Map();
   for (const c of CARDS) {
     const comma = c.name.indexOf(", ");
@@ -71,56 +80,54 @@ const KEYS = (() => {
   }
   for (const [champ, list] of champions) {
     list.sort((a, b) => typeRank(a) - typeRank(b) || a.name.localeCompare(b.name));
-    keys.push({ key: normalize(champ), raw: champ, ids: list.map((c) => c.id) });
+    entries.push({ raw: champ, ids: list.map((c) => c.id), alias: true });
   }
-  return keys.filter((k) => k.key);
+
+  const index = new Map();
+  for (const e of entries) {
+    const spellings = [e.raw, e.raw.replace(/[^\p{L}\p{M}\p{N}\s]/gu, "")];
+    for (const v of new Set(spellings.map((s) => tokenize(s).map((t) => t.word).join(" ")))) {
+      if (!v) continue;
+      const words = v.split(" ");
+      if (!index.has(words[0])) index.set(words[0], []);
+      index.get(words[0]).push({ ...e, words, strict: e.raw.length <= 2 });
+    }
+  }
+  for (const list of index.values()) list.sort((a, b) => b.words.length - a.words.length);
+  return index;
 })();
 
-/**
- * Very short names (the champion "Vi") collide with everyday Italian ("vi dico…"),
- * so they only count when written with the exact capitalization and not as the
- * first word of a sentence.
- */
-function shortNameUsed(raw, text) {
-  const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, "gu");
-  for (const m of text.matchAll(re)) {
-    const before = text.slice(0, m.index + m[1].length);
-    if (!/(^|[.!?:\n])[ \t]*$/.test(before)) return true; // not the start of a sentence/line
-  }
-  return false;
+const SENTENCE_START = /(^|[.!?:\n])[ \t]*$/;
+
+/** Does `key` match the tokens starting at position `i`? */
+function fits(key, tokens, i, text) {
+  if (i + key.words.length > tokens.length) return false;
+  for (let j = 1; j < key.words.length; j++) if (tokens[i + j].word !== key.words[j]) return false;
+  // Very short names (the champion "Vi") collide with everyday Italian ("vi dico…"):
+  // they only count with the exact capitalization and not opening a sentence.
+  return !key.strict || (tokens[i].raw === key.raw && !SENTENCE_START.test(text.slice(0, tokens[i].at)));
 }
 
-/** Card ids mentioned in one piece of text: full names first, then champion aliases. */
+/**
+ * Card ids mentioned in one piece of text: full names first, then champion
+ * aliases. The longest name wins at each position, so "Mega-Mech" is not also
+ * "Mech" and "Jinx, Rebel" is not also every Jinx.
+ */
 export function matchText(text) {
-  const padded = ` ${normalize(text)} `;
-  const hits = [];
-  for (const k of KEYS) {
-    const needle = ` ${k.key} `;
-    let at = padded.indexOf(needle);
-    if (at === -1) continue;
-    if (k.raw.length <= 2 && !shortNameUsed(k.raw, String(text))) continue;
-    const spans = [];
-    while (at !== -1) {
-      spans.push([at, at + needle.length]);
-      at = padded.indexOf(needle, at + 1);
+  const str = String(text);
+  const tokens = tokenize(str);
+  const exact = [];
+  const alias = [];
+  for (let i = 0; i < tokens.length; ) {
+    const key = INDEX.get(tokens[i].word)?.find((k) => fits(k, tokens, i, str));
+    if (!key) {
+      i++;
+      continue;
     }
-    hits.push({ ...k, spans, alias: k.ids.length > 1 || k.raw !== BY_ID.get(k.ids[0])?.name });
+    (key.alias ? alias : exact).push(...key.ids);
+    i += key.words.length;
   }
-
-  // Drop a hit whose every occurrence sits inside a longer hit
-  // ("Mech" inside "Mega-Mech", alias "Jinx" inside "Jinx, Rebel").
-  const kept = hits.filter((h) =>
-    h.spans.some(
-      ([s, e]) =>
-        !hits.some(
-          (o) => o !== h && o.key.length > h.key.length && o.spans.some(([os, oe]) => os <= s && e <= oe),
-        ),
-    ),
-  );
-
-  kept.sort((a, b) => Number(a.alias) - Number(b.alias) || a.spans[0][0] - b.spans[0][0]);
-  return [...new Set(kept.flatMap((h) => h.ids))];
+  return [...new Set([...exact, ...alias])];
 }
 
 /**

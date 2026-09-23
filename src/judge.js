@@ -25,7 +25,38 @@ export const HAS_API_KEY = Boolean(API_KEY);
 export const MAX_MESSAGES = 40; // safety cap on conversation length
 export const MAX_CHARS = 8000; // safety cap on a single message
 
-const RULES_TEXT = fs.readFileSync(RULES_PATH, "utf8");
+const RULE_START = /^\d{3}\.(?:[0-9a-z]+\.?)*\s/; // "135.", "461.4", "359.3.f.3.a.1"
+const OWN_LINE = /^(?:examples?\b|notes?\b|see rule\b|\* |• )/i;
+
+/**
+ * Strip the PDF layout from the rules (column padding, lines wrapped mid-sentence,
+ * zero-width characters) without touching a single word: every rule, example
+ * and "See rule" note starts a new line; wrapped lines are joined back. This
+ * cuts the tokens sent with every question. Idempotent.
+ */
+export function compactRules(text) {
+  const out = [];
+  let paragraphBreak = true;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/[\u200b-\u200d\ufeff]/g, "").replace(/[ \t]+/g, " ").trim();
+    if (!line) {
+      paragraphBreak = true;
+      continue;
+    }
+    const startsItem = RULE_START.test(line) || OWN_LINE.test(line);
+    if (!paragraphBreak && !startsItem) {
+      out[out.length - 1] += ` ${line}`; // a line wrapped by the PDF layout
+    } else {
+      // Keep a blank line only where it is the sole separator (e.g. between example items).
+      if (paragraphBreak && !startsItem && out.length) out.push("");
+      out.push(line);
+    }
+    paragraphBreak = false;
+  }
+  return `${out.join("\n")}\n`;
+}
+
+const RULES_TEXT = compactRules(fs.readFileSync(RULES_PATH, "utf8"));
 
 // Created on first use, so importing this module never needs a key.
 let client;

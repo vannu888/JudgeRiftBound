@@ -2,6 +2,7 @@ import "dotenv/config";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import express from "express";
+import compression from "compression";
 import { MODEL, HAS_API_KEY } from "./src/judge.js";
 import { CARDS, DOMAINS, CARDS_UPDATED_AT, searchCards } from "./src/cards.js";
 import { createAskHandler } from "./src/ask.js";
@@ -14,6 +15,9 @@ const CARD_TYPES = [...new Set(CARDS.map((c) => c.type).filter(Boolean))].sort()
 export function createApp(askOptions) {
   const app = express();
   app.disable("x-powered-by");
+  // gzip pages and JSON (~70% smaller on mobile data), but never the SSE stream
+  // of /api/ask: compressing it would buffer the answer instead of streaming it.
+  app.use(compression({ filter: (req, res) => req.path !== "/api/ask" && compression.filter(req, res) }));
   app.use(express.json({ limit: "1mb" }));
   app.use(express.static(path.join(here, "public")));
 

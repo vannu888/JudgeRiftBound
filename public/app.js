@@ -196,6 +196,23 @@ async function askJudge() {
   let answer = "";
   let reasoning = "";
 
+  // Gemini streams many small chunks: repaint at most once per animation frame.
+  let frame = 0;
+  const paint = () => {
+    frame = 0;
+    ui.reasoningBody.textContent = reasoning;
+    if (answer) ui.content.innerHTML = renderMarkdown(answer);
+    scrollDown();
+  };
+  const schedule = () => {
+    frame ||= requestAnimationFrame(paint);
+  };
+  const flush = () => {
+    if (!frame) return;
+    cancelAnimationFrame(frame);
+    paint();
+  };
+
   try {
     const res = await fetch("/api/ask", {
       method: "POST",
@@ -220,39 +237,44 @@ async function askJudge() {
         switch (event) {
           case "cards":
             renderCardChips(ui.cards, data.cards ?? []);
+            scrollDown();
             break;
           case "reasoning":
             reasoning += data.text;
             ui.reasoning.hidden = false;
             if (!answer) ui.reasoning.open = true; // show the thinking live
-            ui.reasoningBody.textContent = reasoning;
+            schedule();
             break;
           case "answer":
             if (!answer) ui.reasoning.open = false; // collapse once the verdict starts
             answer += data.text;
-            ui.content.innerHTML = renderMarkdown(answer);
+            schedule();
             break;
           case "retry": // server restarts after a transient error: drop partial output
+            flush();
             reasoning = "";
             answer = "";
             ui.reasoningBody.textContent = "";
             ui.content.innerHTML = `<span class="thinking">Gemini è sovraccarico, riprovo…</span>`;
             break;
           case "error":
+            flush(); // paint pending text first, so it can't overwrite the error
             showError(ui, data.message);
             break;
           case "done":
+            flush();
             if (answer) showFooter(ui, data.usage, answer);
             break;
         }
-        scrollDown();
       }
     }
     if (answer.trim()) history.push({ role: "assistant", content: answer });
   } catch (err) {
     console.error(err);
+    flush();
     showError(ui, "Connessione interrotta. Riprova.");
   } finally {
+    flush();
     ui.content.classList.remove("cursor");
     ui.content.querySelector(".thinking")?.remove();
     setBusy(false);

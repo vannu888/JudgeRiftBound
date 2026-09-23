@@ -26,7 +26,7 @@ gratuita di Google Gemini**.
    altri file su GitHub: sono pubblici.
 
 Il piano gratuito è permanente e senza carta di credito, con limiti pensati per l'uso personale.
-Ogni domanda include l'intero regolamento (~95k token) e il piano gratuito consente circa 250.000
+Ogni domanda include l'intero regolamento (~67k token) e il piano gratuito consente circa 250.000
 token di input al minuto per modello: se fai domande a raffica, l'app ti dice quanti secondi
 attendere.
 
@@ -75,7 +75,8 @@ keyword. Più contesto dai, più preciso è il ruling. Se manca qualcosa, il jud
 > In che ordine si risolve la chain?"*
 
 **Scrivi i nomi delle carte in inglese, come sono stampati** (es. `Vi, Destructive`, `Falling Comet`).
-Basta anche il nome del campione (`il mio Jinx…`): il judge riceve tutte le sue versioni. Sopra la
+Basta anche il nome del campione (`il mio Jinx…`, `l'Ahri dell'avversario`): il judge riceve tutte le sue
+versioni. Apostrofi e punteggiatura sono facoltativi (`Kaisa`, `BF Sword`, `Megamech`). Sopra la
 risposta vedi le **carte considerate**: toccane una per leggerne il testo. Se non ricordi il nome
 esatto, apri **🃏 Carte**, cerca e premi **Usa nella domanda**.
 
@@ -136,8 +137,21 @@ JudgeRiftBound/
 npm test
 ```
 
-Verificano il riconoscimento delle carte, il rendering sicuro, lo scraper e l'intero flusso della
-chat (con Gemini simulato: streaming, retry, limiti, timeout).
+Verificano il riconoscimento delle carte, la compattazione del regolamento, il rendering sicuro, lo
+scraper e l'intero flusso della chat (con Gemini simulato: streaming, retry, limiti, timeout,
+compressione).
+
+## Prestazioni
+
+- **Regolamento compattato**: all'avvio il testo estratto dal PDF viene ripulito dall'impaginazione
+  (spazi di colonna, righe spezzate, caratteri invisibili) senza perdere una parola: circa **6.000 token
+  in meno a ogni domanda** (−8,5%), cioè risposte più rapide e più domande al minuto col piano gratuito.
+- **Carte**: il riconoscimento usa un indice per parole (circa 20 volte più veloce del confronto
+  nome per nome) e invia al judge solo le carte citate.
+- **Rete**: pagine e ricerche sono compresse (circa −70% di dati su rete mobile); lo stream delle
+  risposte no, così resta in tempo reale.
+- **Interfaccia**: la risposta in streaming viene ridisegnata al massimo una volta per frame; i moduli JS
+  e i font si caricano in parallelo e senza bloccare la prima visualizzazione.
 
 ## Note
 

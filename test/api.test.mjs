@@ -154,3 +154,18 @@ test("health and card search endpoints", async () => {
     assert.ok(search.cards.length <= 3);
   });
 });
+
+test("pages and JSON are compressed, the answer stream is not", async () => {
+  await withServer({ stream: () => fakeStream([part("ok")]), hasKey: true }, async (base) => {
+    const gz = { "accept-encoding": "gzip" };
+    assert.equal((await fetch(`${base}/styles.css`, { headers: gz })).headers.get("content-encoding"), "gzip");
+    assert.equal((await fetch(`${base}/api/cards?q=jinx`, { headers: gz })).headers.get("content-encoding"), "gzip");
+    const res = await fetch(`${base}/api/ask`, {
+      method: "POST",
+      headers: { ...gz, "content-type": "application/json" },
+      body: JSON.stringify({ messages: question }),
+    });
+    assert.equal(res.headers.get("content-encoding"), null);
+    assert.match(await res.text(), /event: done/);
+  });
+});

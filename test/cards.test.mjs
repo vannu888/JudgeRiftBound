@@ -52,6 +52,13 @@ test("apostrophes are optional and each card appears once", () => {
   assert.equal(new Set(jinx).size, jinx.length);
 });
 
+test("Italian elisions and spellings without punctuation are recognized", () => {
+  assert.ok(names("l'Ahri dell'avversario attacca").every((n) => n.startsWith("Ahri, ")));
+  assert.ok(names("uso l'abilità dell'Ezreal").every((n) => n.startsWith("Ezreal, ")));
+  assert.deepEqual(names("ho equipaggiato BF Sword"), ["B.F. Sword"]);
+  assert.deepEqual(names("vi ricordo la Megamech"), ["Mega-Mech"]);
+});
+
 test("keywords are not cards", () => {
   assert.deepEqual(names("come funziona Deflect?"), []);
 });
