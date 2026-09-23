@@ -2,8 +2,11 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0e15" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Judge RB" />
     <title>Judge Rift Bound</title>
     <meta
       name="description"
@@ -26,15 +29,20 @@
     <div class="app">
       <header class="topbar">
         <div class="brand">
-          <span class="brand-mark">⚖️</span>
+          <span class="brand-mark" aria-hidden="true">⚖️</span>
           <div class="brand-text">
             <h1>Judge Rift Bound</h1>
             <p>Il tuo arbitro virtuale per il ruling, in tempo reale</p>
           </div>
         </div>
-        <button id="newChat" class="ghost-btn" title="Nuova sessione">
-          <span aria-hidden="true">＋</span> Nuova domanda
-        </button>
+        <nav class="actions">
+          <button id="openCards" class="ghost-btn" title="Archivio carte">
+            <span aria-hidden="true">🃏</span><span class="lbl">Carte</span>
+          </button>
+          <button id="newChat" class="ghost-btn" title="Nuova sessione">
+            <span aria-hidden="true">＋</span><span class="lbl">Nuova</span>
+          </button>
+        </nav>
       </header>
 
       <div id="apiWarning" class="api-warning" hidden>
@@ -44,30 +52,29 @@
 
       <main id="chat" class="chat" aria-live="polite">
         <section id="welcome" class="welcome">
-          <div class="medallion" aria-hidden="true">
-            <span>⚖️</span>
-          </div>
+          <div class="medallion" aria-hidden="true"><span>⚖️</span></div>
           <h2 class="welcome-title">Descrivi la situazione di gioco</h2>
           <p class="welcome-sub">
             Spiega cosa sta succedendo in partita — turno, fase, unità e carte coinvolte — e ti dico
-            come procedere, citando le regole ufficiali di Rift Bound.
+            come procedere, citando le regole ufficiali e il testo delle carte.
           </p>
+          <div id="stats" class="stats" hidden></div>
           <p class="examples-label">Prova con un esempio</p>
           <div class="examples">
             <button class="example">
-              <span class="ex-icon">⚔️</span>
-              <span>Ho un'unità con Deflect a un battlefield: come funziona il danno in combattimento
-                contro un'unità con Backline?</span>
+              <span class="ex-icon" aria-hidden="true">⚔️</span>
+              <span>Il mio Vi, Destructive ha Ganking: può spostarsi su un altro battlefield durante
+                lo showdown dell'avversario?</span>
             </button>
             <button class="example">
-              <span class="ex-icon">🔗</span>
-              <span>Gioco una spell durante lo showdown dell'avversario e lui risponde con una
-                Reaction: in che ordine si risolve la chain?</span>
+              <span class="ex-icon" aria-hidden="true">🔗</span>
+              <span>L'avversario gioca Falling Comet sulla mia unità: posso rispondere con una
+                Reaction? In che ordine si risolve la chain?</span>
             </button>
             <button class="example">
-              <span class="ex-icon">⏱️</span>
-              <span>Posso attivare l'abilità di un Gear mentre la priorità è in Closed State? Cosa
-                serve?</span>
+              <span class="ex-icon" aria-hidden="true">🪓</span>
+              <span>Ho attaccato Blighted Battleaxe a un'unità ma questo turno non ho conquistato:
+                cosa succede a fine turno?</span>
             </button>
           </div>
         </section>
@@ -78,8 +85,9 @@
           <textarea
             id="input"
             rows="1"
-            placeholder="Descrivi la situazione o fai una domanda di ruling…"
+            placeholder="Descrivi la situazione (nomi delle carte in inglese)…"
             autocomplete="off"
+            enterkeyhint="send"
           ></textarea>
           <button id="send" type="submit" title="Invia (Invio)">
             <span class="send-label">Chiedi al judge</span>
@@ -87,11 +95,50 @@
           </button>
         </form>
         <p class="disclaimer">
-          Le risposte si basano sulle Riftbound Core Rules. Per un torneo ufficiale, la parola finale
-          spetta al judge presente.
+          Basato sulle Riftbound Core Rules e sul database carte. In torneo la parola finale spetta al
+          judge presente.
         </p>
       </footer>
     </div>
+
+    <!-- Archivio carte -->
+    <dialog id="cardBrowser" class="drawer" aria-labelledby="cardBrowserTitle">
+      <div class="dlg-inner">
+        <div class="drawer-head">
+          <h2 id="cardBrowserTitle">Archivio carte</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Chiudi">✕</button>
+        </div>
+        <div class="drawer-tools">
+          <input
+            id="cardSearch"
+            type="search"
+            placeholder="Cerca per nome, testo o keyword…"
+            autocomplete="off"
+            enterkeyhint="search"
+          />
+          <div class="filters">
+            <div id="domainFilters" class="domain-filters" role="group" aria-label="Filtra per dominio"></div>
+            <select id="typeFilter" aria-label="Filtra per tipo">
+              <option value="">Tutti i tipi</option>
+            </select>
+          </div>
+        </div>
+        <p id="cardCount" class="card-count"></p>
+        <div id="cardResults" class="card-results"></div>
+        <button id="moreCards" type="button" class="ghost-btn more" hidden>Mostra altre</button>
+      </div>
+    </dialog>
+
+    <!-- Dettaglio carta -->
+    <dialog id="cardDialog" class="card-dialog" aria-labelledby="cardDialogTitle">
+      <div class="dlg-inner">
+        <div class="drawer-head">
+          <h2 id="cardDialogTitle">Testo della carta</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Chiudi">✕</button>
+        </div>
+        <div id="cardDialogBody"></div>
+      </div>
+    </dialog>
 
     <script src="/app.js" type="module"></script>
   </body>

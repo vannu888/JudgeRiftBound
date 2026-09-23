@@ -6,7 +6,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "cards": "node scripts/fetch-cards.mjs",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18.17"

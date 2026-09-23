@@ -2,11 +2,14 @@
 
 Un **judge virtuale** per [Rift Bound](https://riftbound.leagueoflegends.com/): descrivi una
 situazione di gioco e ricevi in tempo reale un ruling — come procedere e perché — ragionato sul
-**regolamento ufficiale** (Riftbound Core Rules) tramite l'**API gratuita di Google Gemini**.
+**regolamento ufficiale** (Riftbound Core Rules) e sul **testo delle carte**, tramite l'**API
+gratuita di Google Gemini**.
 
 - 🧠 Il judge ragiona sulle regole complete (le Core Rules sono nel prompt di sistema).
-- 💬 Interfaccia chat con risposte in **streaming**, ragionamento del judge visibile e follow-up
-  (puoi continuare a chiedere sulla stessa situazione).
+- 🃏 **Database di ~945 carte**: quando nomini una carta, il suo testo ufficiale (costo, Might,
+  keyword, errata, ban) viene passato al judge — per la Golden Rule il testo della carta prevale.
+- 🔎 **Archivio carte** con ricerca, filtri per dominio e tipo, e inserimento nella domanda.
+- 💬 Chat con risposte in **streaming**, ragionamento del judge visibile e follow-up.
 - 📖 Ogni verdetto cita i **numeri delle regole** applicate, così puoi verificare.
 - 🆓 Usa il **piano gratuito di Google Gemini** (nessuna carta di credito richiesta).
 
@@ -18,13 +21,14 @@ situazione di gioco e ricevi in tempo reale un ruling — come procedere e perch
 ## Come ottenere la chiave (gratis)
 
 1. Vai su **https://aistudio.google.com/apikey** e accedi con un account Google.
-2. Clicca **Create API key** (crea chiave API).
-3. Copia la chiave (inizia con `AIza...`) e incollala nel file `.env` (vedi sotto).
+2. Clicca **Create API key** (crea chiave API) e copiala.
+3. Mettila nel file `.env` del progetto (vedi sotto). **Non** scriverla in `.env.example` né in
+   altri file su GitHub: sono pubblici.
 
-Il piano gratuito è permanente e senza carta di credito, con limiti di velocità pensati per l'uso
-personale. Nota: ogni domanda include l'intero regolamento (~95k token) e il piano gratuito
-consente 250.000 token di input al minuto per modello, quindi conviene distanziare un minuto le
-domande in rapida successione (l'app te lo segnala se superi il limite).
+Il piano gratuito è permanente e senza carta di credito, con limiti pensati per l'uso personale.
+Ogni domanda include l'intero regolamento (~95k token) e il piano gratuito consente circa 250.000
+token di input al minuto per modello: se fai domande a raffica, l'app ti dice quanti secondi
+attendere.
 
 ## Avvio rapido (in locale)
 
@@ -33,8 +37,8 @@ domande in rapida successione (l'app te lo segnala se superi il limite).
 npm install
 
 # 2. Configura la chiave API
-cp .env.example .env        # su Windows: copy .env.example .env
-#    ...poi apri .env e incolla la tua GEMINI_API_KEY
+cp .env.example .env        # poi apri .env e incolla la tua GEMINI_API_KEY
+#    su Windows: doppio clic su crea-env-windows.bat, incolli la chiave e premi Invio
 
 # 3. Avvia
 npm start
@@ -60,42 +64,80 @@ dal repository GitHub:
 5. Deploy → ottieni un link `https://...onrender.com` da aprire su Safari e "Aggiungi a Home".
 
 > Il server usa già `process.env.PORT`, quindi funziona senza modifiche sulla maggior parte degli host.
-> Se il link è pubblico, valuta di aggiungere una password d'accesso (chiedi pure).
+> Se il link è pubblico, valuta di aggiungere una password d'accesso.
 
 ## Come si usa
 
 Scrivi cosa sta succedendo in partita: di chi è il turno, la fase, le unità/carte coinvolte, le
 keyword. Più contesto dai, più preciso è il ruling. Se manca qualcosa, il judge te lo chiede.
 
-> Esempio: *"È il turno dell'avversario, siamo in uno showdown a un battlefield. Io ho un'unità con
-> Tank e lui gioca una spell con Reaction: in che ordine si risolve la chain?"*
+> Esempio: *"L'avversario gioca Falling Comet sulla mia unità: posso rispondere con una Reaction?
+> In che ordine si risolve la chain?"*
 
-Se il ruling dipende dal testo esatto di una carta, incollalo nella chat: per la **Golden Rule** il
-testo della carta prevale sulle regole generali.
+**Scrivi i nomi delle carte in inglese, come sono stampati** (es. `Vi, Destructive`, `Falling Comet`).
+Basta anche il nome del campione (`il mio Jinx…`): il judge riceve tutte le sue versioni. Sopra la
+risposta vedi le **carte considerate**: toccane una per leggerne il testo. Se non ricordi il nome
+esatto, apri **🃏 Carte**, cerca e premi **Usa nella domanda**.
+
+## Database delle carte
+
+Il file `data/cards.json` contiene i dati **funzionali** di tutte le carte (nome, tipo, dominio, costo in Energy/Power, Might, tag, testo delle regole, errata e ban),
+presi da [piltoverarchive.com/cards](https://piltoverarchive.com/cards). Niente artwork, flavor text o
+prezzi.
+
+Quando esce un nuovo set, aggiornalo con:
+
+```bash
+npm run cards
+```
+
+Lo script scorre educatamente le pagine del sito (una richiesta alla volta) e riscrive
+`data/cards.json`. Il server riconosce le carte nominate nella conversazione (nomi completi e nomi dei
+campioni, con attenzione a falsi positivi come la parola italiana "vi") e ne allega il testo alla
+domanda, fino a 16 carte, così il prompt resta leggero.
 
 ## Configurazione
 
 Opzioni nel file `.env` (vedi `.env.example`):
 
-| Variabile               | Default            | Descrizione                                                            |
-| ----------------------- | ------------------ | --------------------------------------------------------------------- |
-| `GEMINI_API_KEY`        | —                  | **Obbligatoria.** La tua chiave API Google Gemini (gratuita).         |
-| `PORT`                  | `3000`             | Porta del server.                                                     |
-| `JUDGE_MODEL`           | `gemini-flash-latest` | Modello. `gemini-flash-lite-latest` = limiti più alti; `gemini-pro-latest` = più bravo; oppure una versione fissa (es. `gemini-3.6-flash`). |
-| `JUDGE_THINKING_BUDGET` | `-1`               | Ragionamento: `-1` automatico, `0` disattivato, oppure un numero di token. |
+| Variabile               | Default               | Descrizione                                                          |
+| ----------------------- | --------------------- | -------------------------------------------------------------------- |
+| `GEMINI_API_KEY`        | —                     | **Obbligatoria.** La tua chiave API Google Gemini (gratuita).        |
+| `PORT`                  | `3000`                | Porta del server.                                                    |
+| `JUDGE_MODEL`           | `gemini-flash-latest` | `gemini-flash-lite-latest` = limiti più alti; `gemini-pro-latest` = più bravo; oppure una versione fissa (es. `gemini-3.6-flash`). |
+| `JUDGE_THINKING_BUDGET` | `-1`                  | Ragionamento: `-1` automatico, `0` disattivato, oppure un numero di token. |
+| `JUDGE_TIMEOUT_MS`      | `60000`               | Dopo quanti ms senza risposta da Gemini la richiesta viene interrotta. |
 
 ## Struttura del progetto
 
 ```
 JudgeRiftBound/
-├── server.js                     # server Express + endpoint SSE /api/ask
-├── src/judge.js                  # prompt del judge + chiamata Gemini (streaming, thinking)
-├── data/riftbound-core-rules.txt # testo integrale delle Core Rules (fonte del judge)
-└── public/                       # interfaccia web (HTML/CSS/JS, nessun build step)
-    ├── index.html
-    ├── styles.css
-    └── app.js
+├── server.js                     # server Express: rotte /api/health, /api/cards, /api/ask
+├── src/
+│   ├── judge.js                  # prompt del judge + chiamata Gemini (streaming, thinking)
+│   ├── ask.js                    # risposta in streaming (SSE): retry, timeout, errori
+│   └── cards.js                  # database carte: riconoscimento, ricerca, formattazione
+├── scripts/fetch-cards.mjs       # aggiorna data/cards.json (npm run cards)
+├── data/
+│   ├── riftbound-core-rules.txt  # testo integrale delle Core Rules
+│   └── cards.json                # dati funzionali delle carte
+├── public/                       # interfaccia web (HTML/CSS/JS, nessun build step)
+│   ├── index.html
+│   ├── styles.css
+│   ├── app.js                    # chat e streaming
+│   ├── cards.js                  # archivio, chip e dettaglio carte
+│   └── markdown.js               # rendering sicuro di risposte e simboli di gioco
+└── test/                         # test automatici (npm test)
 ```
+
+## Test
+
+```bash
+npm test
+```
+
+Verificano il riconoscimento delle carte, il rendering sicuro, lo scraper e l'intero flusso della
+chat (con Gemini simulato: streaming, retry, limiti, timeout).
 
 ## Note
 

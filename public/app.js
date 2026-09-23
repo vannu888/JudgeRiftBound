@@ -1,75 +1,84 @@
-// --- State ---
+import { renderMarkdown, setDomainColors } from "./markdown.js";
+import { initCardBrowser, renderCardChips } from "./cards.js";
+
 /** @type {{role: "user"|"assistant", content: string}[]} */
 let history = [];
 let busy = false;
 
-// --- Elements ---
-const chatEl = document.getElementById("chat");
-const welcomeEl = document.getElementById("welcome");
-const formEl = document.getElementById("askForm");
-const inputEl = document.getElementById("input");
-const sendBtn = document.getElementById("send");
-const newChatBtn = document.getElementById("newChat");
-const apiWarning = document.getElementById("apiWarning");
+const $ = (id) => document.getElementById(id);
+const chatEl = $("chat");
+const welcomeEl = $("welcome");
+const formEl = $("askForm");
+const inputEl = $("input");
+const sendBtn = $("send");
 
-// --- Health check (warn if the server has no API key) ---
+// --- Startup: server status, stats, card archive ------------------------------
 fetch("/api/health")
   .then((r) => r.json())
   .then((h) => {
-    if (!h.hasApiKey) apiWarning.hidden = false;
+    if (!h.hasApiKey) $("apiWarning").hidden = false;
+    setDomainColors(h.domains);
+    showStats(h);
+    initCardBrowser({ domains: h.domains, types: h.cardTypes, onInsert: insertCardName });
   })
   .catch(() => {});
 
-// --- Textarea auto-grow ---
+function showStats(h) {
+  const stats = $("stats");
+  const items = [["📖", "Core Rules 30/03/2026"]];
+  if (h.cards) items.push(["🃏", `${h.cards} carte`]);
+  items.push(["⚡", "Gemini"]);
+  stats.innerHTML = items.map(([i, t]) => `<span><span aria-hidden="true">${i}</span> ${t}</span>`).join("");
+  stats.hidden = false;
+}
+
+function insertCardName(name) {
+  const v = inputEl.value.trimEnd();
+  inputEl.value = v ? `${v} ${name} ` : `${name} `;
+  autoGrow();
+  inputEl.focus();
+}
+
+// --- Composer ---------------------------------------------------------------
 function autoGrow() {
   inputEl.style.height = "auto";
-  inputEl.style.height = Math.min(inputEl.scrollHeight, 180) + "px";
+  inputEl.style.height = `${Math.min(inputEl.scrollHeight, 180)}px`;
 }
 inputEl.addEventListener("input", autoGrow);
-
-// Enter = send, Shift+Enter = newline
 inputEl.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     formEl.requestSubmit();
   }
 });
 
-// --- Example prompts ---
-document.querySelectorAll(".example").forEach((btn) => {
+for (const btn of document.querySelectorAll(".example")) {
   btn.addEventListener("click", () => {
-    inputEl.value = btn.textContent.trim().replace(/\s+/g, " ");
-    autoGrow();
-    inputEl.focus();
+    // Only the question text, not the decorative icon.
+    inputEl.value = btn.lastElementChild.textContent.trim().replace(/\s+/g, " ");
     formEl.requestSubmit();
   });
-});
+}
 
-// --- New session ---
-newChatBtn.addEventListener("click", () => {
+$("newChat").addEventListener("click", () => {
   if (busy) return;
   history = [];
-  chatEl.querySelectorAll(".msg").forEach((n) => n.remove());
-  if (welcomeEl) welcomeEl.style.display = "";
+  for (const n of chatEl.querySelectorAll(".msg")) n.remove();
+  welcomeEl.hidden = false;
   inputEl.value = "";
   autoGrow();
   inputEl.focus();
 });
 
-// --- Submit ---
 formEl.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (busy) return;
   const text = inputEl.value.trim();
-  if (!text) return;
-
-  if (welcomeEl) welcomeEl.style.display = "none";
-
+  if (busy || !text) return;
+  welcomeEl.hidden = true;
   addUserMessage(text);
   history.push({ role: "user", content: text });
   inputEl.value = "";
   autoGrow();
-
   await askJudge();
 });
 
@@ -79,7 +88,13 @@ function setBusy(state) {
   inputEl.disabled = state;
 }
 
-// --- Rendering helpers ---
+// --- Messages ---------------------------------------------------------------
+/** Follow the conversation, unless the user scrolled up to read (force = new message). */
+function scrollDown(force = false) {
+  const doc = document.scrollingElement;
+  if (force || doc.scrollHeight - doc.scrollTop - doc.clientHeight < 240) doc.scrollTop = doc.scrollHeight;
+}
+
 function addUserMessage(text) {
   const el = document.createElement("div");
   el.className = "msg user";
@@ -90,8 +105,8 @@ function addUserMessage(text) {
       <div class="bubble"></div>
     </div>`;
   el.querySelector(".bubble").textContent = text;
-  chatEl.appendChild(el);
-  scrollDown();
+  chatEl.append(el);
+  scrollDown(true);
 }
 
 function createJudgeMessage() {
@@ -102,34 +117,84 @@ function createJudgeMessage() {
     <div class="stack">
       <div class="role">Judge</div>
       <div class="bubble">
+        <div class="cards-used" hidden></div>
         <details class="reasoning" hidden>
-          <summary><span class="spark">✦</span> Ragionamento del judge</summary>
+          <summary><span class="spark" aria-hidden="true">✦</span> Ragionamento del judge</summary>
           <div class="reasoning-body"></div>
         </details>
-        <div class="content cursor"></div>
+        <div class="content cursor"><span class="thinking">Il judge sta consultando le regole…</span></div>
+        <div class="msg-foot" hidden>
+          <span class="usage"></span>
+          <button type="button" class="chip-btn copy">Copia risposta</button>
+        </div>
       </div>
     </div>`;
-  chatEl.appendChild(el);
-  scrollDown();
+  chatEl.append(el);
+  scrollDown(true);
+  const q = (s) => el.querySelector(s);
   return {
-    root: el,
-    reasoning: el.querySelector(".reasoning"),
-    reasoningBody: el.querySelector(".reasoning-body"),
-    content: el.querySelector(".content"),
+    cards: q(".cards-used"),
+    reasoning: q(".reasoning"),
+    reasoningBody: q(".reasoning-body"),
+    content: q(".content"),
+    foot: q(".msg-foot"),
+    usage: q(".usage"),
+    copy: q(".copy"),
   };
 }
 
-function scrollDown() {
-  chatEl.scrollTop = chatEl.scrollHeight;
+function showError(ui, message) {
+  const p = document.createElement("p");
+  p.className = "error-note";
+  p.textContent = `⚠️ ${message}`;
+  ui.content.querySelector(".thinking")?.remove();
+  ui.content.append(p);
+  scrollDown();
 }
 
-// --- Ask the judge (SSE over fetch) ---
+function showFooter(ui, usage, answer) {
+  if (usage) {
+    ui.usage.textContent = `${usage.input_tokens.toLocaleString("it-IT")} token in · ${usage.output_tokens.toLocaleString("it-IT")} out`;
+  }
+  ui.copy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(answer);
+      ui.copy.textContent = "Copiata ✓";
+    } catch {
+      ui.copy.textContent = "Copia non riuscita";
+    }
+    setTimeout(() => (ui.copy.textContent = "Copia risposta"), 1800);
+  });
+  ui.foot.hidden = false;
+}
+
+// --- Ask the judge (Server-Sent Events over fetch) ----------------------------
+/** Yield every complete SSE event in `buffer.text`, leaving any partial one in place. */
+function* parseEvents(buffer) {
+  let sep;
+  while ((sep = buffer.text.indexOf("\n\n")) !== -1) {
+    const raw = buffer.text.slice(0, sep);
+    buffer.text = buffer.text.slice(sep + 2);
+    let event = "";
+    let data = "";
+    for (const line of raw.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim();
+      else if (line.startsWith("data:")) data += line.slice(5).trim();
+    }
+    if (!event) continue;
+    try {
+      yield { event, data: data ? JSON.parse(data) : {} };
+    } catch {
+      /* ignore malformed event */
+    }
+  }
+}
+
 async function askJudge() {
   setBusy(true);
   const ui = createJudgeMessage();
   let answer = "";
   let reasoning = "";
-  let gotAnswer = false;
 
   try {
     const res = await fetch("/api/ask", {
@@ -137,185 +202,60 @@ async function askJudge() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: history }),
     });
-
     if (!res.ok || !res.body) {
-      let msg = "Errore nel contattare il judge.";
-      try {
-        const j = await res.json();
-        if (j.error) msg = j.error;
-      } catch {}
-      showError(ui, msg);
+      const err = await res.json().catch(() => ({}));
+      showError(ui, err.error || "Errore nel contattare il judge.");
       return;
     }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
+    const buffer = { text: "" };
+    for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      buffer.text += decoder.decode(value, { stream: true });
 
-      // SSE events are separated by a blank line.
-      let sep;
-      while ((sep = buffer.indexOf("\n\n")) !== -1) {
-        const rawEvent = buffer.slice(0, sep);
-        buffer = buffer.slice(sep + 2);
-        const { event, data } = parseSSE(rawEvent);
-        if (!event) continue;
-
-        if (event === "reasoning") {
-          reasoning += data.text;
-          ui.reasoning.hidden = false;
-          if (!gotAnswer) ui.reasoning.open = true; // auto-open while thinking
-          ui.reasoningBody.textContent = reasoning;
-          scrollDown();
-        } else if (event === "answer") {
-          if (!gotAnswer) {
-            gotAnswer = true;
-            ui.reasoning.open = false; // collapse reasoning once the verdict starts
-          }
-          answer += data.text;
-          ui.content.innerHTML = renderMarkdown(answer);
-          scrollDown();
-        } else if (event === "retry") {
-          // Server is re-attempting after a transient error: discard the
-          // partial output so the fresh attempt doesn't append to it.
-          reasoning = "";
-          answer = "";
-          gotAnswer = false;
-          ui.reasoningBody.textContent = "";
-          ui.content.innerHTML = "";
-        } else if (event === "error") {
-          showError(ui, data.message);
-        } else if (event === "done") {
-          if (data.usage) attachUsage(ui, data.usage);
+      for (const { event, data } of parseEvents(buffer)) {
+        switch (event) {
+          case "cards":
+            renderCardChips(ui.cards, data.cards ?? []);
+            break;
+          case "reasoning":
+            reasoning += data.text;
+            ui.reasoning.hidden = false;
+            if (!answer) ui.reasoning.open = true; // show the thinking live
+            ui.reasoningBody.textContent = reasoning;
+            break;
+          case "answer":
+            if (!answer) ui.reasoning.open = false; // collapse once the verdict starts
+            answer += data.text;
+            ui.content.innerHTML = renderMarkdown(answer);
+            break;
+          case "retry": // server restarts after a transient error: drop partial output
+            reasoning = "";
+            answer = "";
+            ui.reasoningBody.textContent = "";
+            ui.content.innerHTML = `<span class="thinking">Gemini è sovraccarico, riprovo…</span>`;
+            break;
+          case "error":
+            showError(ui, data.message);
+            break;
+          case "done":
+            if (answer) showFooter(ui, data.usage, answer);
+            break;
         }
+        scrollDown();
       }
     }
-
-    ui.content.classList.remove("cursor");
-    if (answer.trim()) {
-      history.push({ role: "assistant", content: answer });
-    }
+    if (answer.trim()) history.push({ role: "assistant", content: answer });
   } catch (err) {
     console.error(err);
     showError(ui, "Connessione interrotta. Riprova.");
   } finally {
     ui.content.classList.remove("cursor");
+    ui.content.querySelector(".thinking")?.remove();
     setBusy(false);
     inputEl.focus();
   }
-}
-
-function parseSSE(raw) {
-  let event = "";
-  let dataStr = "";
-  for (const line of raw.split("\n")) {
-    if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
-  }
-  let data = {};
-  if (dataStr) {
-    try {
-      data = JSON.parse(dataStr);
-    } catch {}
-  }
-  return { event, data };
-}
-
-function showError(ui, message) {
-  ui.content.classList.remove("cursor");
-  const p = document.createElement("p");
-  p.className = "error-note";
-  p.textContent = "⚠️ " + message;
-  ui.content.appendChild(p);
-  scrollDown();
-}
-
-function attachUsage(ui, usage) {
-  const cached = usage.cache_read_input_tokens || 0;
-  const el = document.createElement("div");
-  el.className = "usage";
-  el.textContent =
-    `token: ${usage.input_tokens ?? 0} in · ${usage.output_tokens ?? 0} out` +
-    (cached ? ` · ${cached} da cache` : "");
-  ui.root.querySelector(".bubble").appendChild(el);
-}
-
-// --- Minimal, safe Markdown renderer ---
-function escapeHtml(s) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function inlineMd(s) {
-  // Order matters: escape first, then apply inline formatting.
-  return escapeHtml(s)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
-}
-
-function renderMarkdown(text) {
-  const lines = text.replace(/\r/g, "").split("\n");
-  let html = "";
-  let listType = null; // "ul" | "ol" | null
-  let para = [];
-
-  const flushPara = () => {
-    if (para.length) {
-      html += "<p>" + para.map(inlineMd).join("<br>") + "</p>";
-      para = [];
-    }
-  };
-  const closeList = () => {
-    if (listType) {
-      html += `</${listType}>`;
-      listType = null;
-    }
-  };
-
-  for (const line of lines) {
-    const t = line.trim();
-    if (!t) {
-      flushPara();
-      closeList();
-      continue;
-    }
-    const heading = t.match(/^(#{1,4})\s+(.*)$/);
-    const ul = t.match(/^[-*]\s+(.*)$/);
-    const ol = t.match(/^\d+[.)]\s+(.*)$/);
-
-    if (heading) {
-      flushPara();
-      closeList();
-      html += "<h3>" + inlineMd(heading[2]) + "</h3>";
-    } else if (ul) {
-      flushPara();
-      if (listType !== "ul") {
-        closeList();
-        listType = "ul";
-        html += "<ul>";
-      }
-      html += "<li>" + inlineMd(ul[1]) + "</li>";
-    } else if (ol) {
-      flushPara();
-      if (listType !== "ol") {
-        closeList();
-        listType = "ol";
-        html += "<ol>";
-      }
-      html += "<li>" + inlineMd(ol[1]) + "</li>";
-    } else {
-      closeList();
-      para.push(t);
-    }
-  }
-  flushPara();
-  closeList();
-  return html;
 }

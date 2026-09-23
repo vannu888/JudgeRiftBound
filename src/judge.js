@@ -1,14 +1,17 @@
+// Il "cervello" del judge: prompt di sistema (regolamento completo) e
+// chiamata in streaming a Google Gemini.
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { GoogleGenAI } from "@google/genai";
+import { formatCardsBlock } from "./cards.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = path.join(here, "..", "data", "riftbound-core-rules.txt");
 
 // --- Configuration (override via environment variables) ---
-// gemini-flash-latest: alias che punta sempre al modello Flash stabile corrente
-// (così non si "rompe" quando Google ritira le versioni vecchie).
+// gemini-flash-latest: alias che punta sempre al modello Flash stabile corrente.
 // Alternative: gemini-flash-lite-latest (limiti più alti), gemini-pro-latest (più bravo),
 // oppure una versione fissa come gemini-3.6-flash.
 export const MODEL = process.env.JUDGE_MODEL || "gemini-flash-latest";
@@ -19,18 +22,29 @@ const THINKING_BUDGET = Number(process.env.JUDGE_THINKING_BUDGET ?? -1);
 const API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
 export const HAS_API_KEY = Boolean(API_KEY);
 
-// The official Core Rules, loaded once at startup and reused on every request.
+export const MAX_MESSAGES = 40; // safety cap on conversation length
+export const MAX_CHARS = 8000; // safety cap on a single message
+
 const RULES_TEXT = fs.readFileSync(RULES_PATH, "utf8");
 
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// Created on first use, so importing this module never needs a key.
+let client;
+const ai = () => (client ??= new GoogleGenAI({ apiKey: API_KEY }));
 
+// Stable for every request (only the conversation changes), so Gemini can reuse
+// it from its automatic prompt cache.
 const SYSTEM_INSTRUCTIONS = `Sei un JUDGE ufficiale ed esperto del gioco di carte collezionabili "Riftbound" (il TCG di League of Legends). Il tuo compito è risolvere in tempo reale le situazioni di gioco che un giocatore ti descrive, esattamente come farebbe un arbitro a un torneo: il giocatore spiega cosa sta succedendo in partita e tu gli dici come procedere.
 
 ## Fonte delle regole
 - Alla fine di queste istruzioni trovi il testo integrale delle "Riftbound Core Rules" ufficiali. È la tua UNICA fonte di verità sulle regole.
 - Non inventare regole e non basarti su ricordi di altri giochi (Magic, Pokémon, ecc.). Se una cosa non è nel regolamento, dillo esplicitamente.
 - Le regole sono numerate (es. 341, 456.2, 826.4.a). Quando applichi una regola, CITA sempre i numeri pertinenti tra parentesi, così il giocatore può verificare.
-- Ricorda la Golden Rule (002): il testo di una carta prevale sul testo delle regole. Se il ruling dipende dall'effetto specifico di una carta e non conosci quel testo, chiedi al giocatore di incollarti il testo esatto della carta prima di dare un verdetto definitivo.
+
+## Testo delle carte
+- Quando il giocatore nomina delle carte, il suo messaggio inizia con un blocco [CARTE CITATE] con il testo ufficiale (tipo, dominio, costo in Energy/Power, Might, testo, eventuali errata e ban). Per la Golden Rule (002) il testo della carta prevale sulle regole generali: basa il ruling su quel testo e citalo quando serve.
+- Il blocco è generato automaticamente riconoscendo i nomi: può contenere carte che non c'entrano (ignorale) e, se il giocatore nomina un campione, tutte le sue versioni (usa quella pertinente o chiedi quale).
+- Se il ruling dipende da una carta che NON compare nel blocco, chiedi il nome esatto della carta (in inglese, come stampato) o il suo testo prima di dare un verdetto definitivo.
+- Se una carta risulta BANNED, segnalalo quando è rilevante (es. deck building o tornei).
 
 ## Come rispondere
 - Rispondi nella stessa lingua in cui il giocatore scrive. Se scrive in italiano, rispondi in italiano.
@@ -38,7 +52,7 @@ const SYSTEM_INSTRUCTIONS = `Sei un JUDGE ufficiale ed esperto del gioco di cart
 - Struttura la risposta così:
   1. **Verdetto** — in una o due frasi, cosa succede / come si deve procedere.
   2. **Perché** — la spiegazione del ragionamento, passo per passo se la situazione è complessa (timing, priorità, catena/chain, showdown, combattimento, ecc.).
-  3. **Regole** — l'elenco puntato dei numeri di regola che hai applicato, ognuno con una brevissima parafrasi.
+  3. **Regole** — l'elenco puntato dei numeri di regola (e delle carte) che hai applicato, ognuno con una brevissima parafrasi.
 - Se mancano informazioni essenziali per decidere (di chi è il turno, quale stato/fase, quali carte o keyword coinvolte, chi ha la priorità/focus), NON tirare a indovinare: dai comunque il quadro generale e poi fai domande specifiche e mirate per completare il ruling.
 - Se il giocatore descrive più sotto-domande, rispondi a tutte in modo ordinato.
 - Non essere prolisso oltre il necessario, ma non sacrificare la correttezza: la precisione del ruling viene prima di tutto.
@@ -52,32 +66,39 @@ ${RULES_TEXT}
 ======================= FINE REGOLE =======================`;
 
 /**
- * Convert the browser conversation into Gemini `contents`.
- * Browser sends {role: "user"|"assistant", content}; Gemini uses role "user"|"model".
+ * Validate the conversation sent by the browser.
+ * Returns [{ role: "user"|"assistant", content }] starting with a user turn.
  */
-export function normalizeMessages(raw) {
+export function sanitizeMessages(raw) {
   if (!Array.isArray(raw)) return [];
   const out = [];
   for (const m of raw) {
     if (!m || (m.role !== "user" && m.role !== "assistant")) continue;
     const content = typeof m.content === "string" ? m.content.trim() : "";
-    if (!content) continue;
-    out.push({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: content }],
-    });
+    if (content) out.push({ role: m.role, content });
   }
-  // Gemini requires the first turn to be from the user.
   while (out.length && out[0].role !== "user") out.shift();
   return out;
 }
 
 /**
- * Open a streaming judge response for the given conversation.
- * Returns Promise<AsyncGenerator<GenerateContentResponse>>.
+ * Convert to Gemini `contents`, attaching the text of the cited cards to the
+ * latest question (not to the system prompt, which must stay identical).
  */
+export function buildContents(messages, cards = []) {
+  const lastUser = messages.findLastIndex((m) => m.role === "user");
+  return messages.map((m, i) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts:
+      i === lastUser && cards.length
+        ? [{ text: formatCardsBlock(cards) }, { text: `Domanda del giocatore:\n${m.content}` }]
+        : [{ text: m.content }],
+  }));
+}
+
+/** Open a streaming judge response. Resolves to an AsyncGenerator of chunks. */
 export function streamJudge(contents, abortSignal) {
-  return ai.models.generateContentStream({
+  return ai().models.generateContentStream({
     model: MODEL,
     contents,
     config: {
