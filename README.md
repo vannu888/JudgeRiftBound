@@ -19,8 +19,12 @@ gratuita di Google Gemini**.
   **Stop**, **Rigenera**, **Copia** e **Condividi**.
 - 🕘 **Cronologia** delle ultime 30 conversazioni, salvata sul dispositivo (nessun dato sul server).
 - 📱 **Installabile** su iPhone come app (Safari → Condividi → Aggiungi a Home), con icona propria.
+  Si apre all'istante anche mentre il server gratuito si risveglia e funziona **offline** per
+  segnapunti, cronologia e regole già consultate.
 - 🔒 **Password d'accesso** opzionale e limite di domande al minuto, per quando la metti online.
-- 🆓 Usa il **piano gratuito di Google Gemini** (nessuna carta di credito richiesta).
+- 🆓 Usa il **piano gratuito di Google Gemini** (nessuna carta di credito richiesta) e lo fa durare
+  il più possibile: modello di riserva quando il primo esaurisce la quota, risposte già date
+  riutilizzate senza consumi, follow-up più leggeri.
 
 ## Requisiti
 
@@ -35,9 +39,11 @@ gratuita di Google Gemini**.
    altri file su GitHub: sono pubblici.
 
 Il piano gratuito è permanente e senza carta di credito, con limiti pensati per l'uso personale.
-Ogni domanda include l'intero regolamento (~67k token) e il piano gratuito consente circa 250.000
-token di input al minuto per modello: se fai domande a raffica, l'app ti dice quanti secondi
-attendere.
+Ogni domanda include l'intero regolamento (~67k token) e i limiti valgono **per modello** (token al
+minuto e richieste al giorno). Per questo il judge usa due modelli: quando il primo raggiunge il
+limite passa da solo al secondo (sotto la risposta vedi *modello di riserva*); solo se sono entrambi
+al limite l'app ti dice quanti secondi attendere. La quota giornaliera si azzera alle 9:00 (ora
+italiana).
 
 ## Avvio rapido (in locale)
 
@@ -142,7 +148,7 @@ Opzioni nel file `.env` (vedi `.env.example`):
 | ----------------------- | --------------------- | -------------------------------------------------------------------- |
 | `GEMINI_API_KEY`        | —                     | **Obbligatoria.** La tua chiave API Google Gemini (gratuita).        |
 | `PORT`                  | `3000`                | Porta del server.                                                    |
-| `JUDGE_MODEL`           | `gemini-flash-latest` | `gemini-flash-lite-latest` = limiti più alti; `gemini-pro-latest` = più bravo; oppure una versione fissa (es. `gemini-3.6-flash`). |
+| `JUDGE_MODEL`           | `gemini-flash-latest,gemini-flash-lite-latest` | Modelli in ordine di preferenza, separati da virgola: quando uno esaurisce la quota si passa al successivo. Anche un solo modello o versioni fisse (es. `gemini-3.6-flash`). |
 | `JUDGE_THINKING_BUDGET` | `-1`                  | Ragionamento: `-1` automatico, `0` disattivato, oppure un numero di token. |
 | `JUDGE_TIMEOUT_MS`      | `60000`               | Dopo quanti ms senza risposta da Gemini la richiesta viene interrotta. |
 | `ACCESS_PASSWORD`       | —                     | Se impostata, l'app chiede questa password prima di rispondere (consigliata online). |
@@ -159,18 +165,21 @@ JudgeRiftBound/
 │   ├── ask.js                    # risposta in streaming (SSE): retry, timeout, errori
 │   ├── rules.js                  # regolamento: compattazione, indice, ricerca
 │   ├── cards.js                  # database carte: riconoscimento, ricerca, formattazione
-│   └── security.js               # password d'accesso e limite di richieste
+│   ├── security.js               # password d'accesso e limite di richieste
+│   ├── offline.js                # prepara /sw.js con versione ed elenco dei file
+│   └── service-worker.js         # (gira nel browser) app offline e aggiornamenti
 ├── scripts/fetch-cards.mjs       # aggiorna data/cards.json (npm run cards)
 ├── data/
 │   ├── riftbound-core-rules.txt  # testo integrale delle Core Rules
 │   └── cards.json                # dati funzionali delle carte
 ├── public/                       # interfaccia web (HTML/CSS/JS, nessun build step)
-│   ├── index.html · styles.css · manifest.webmanifest · icons/
+│   ├── index.html · styles.css · manifest.webmanifest · icons/ · fonts/
 │   ├── app.js                    # avvio, domande e streaming
 │   ├── chat.js                   # messaggi, azioni (copia, condividi, rigenera)
 │   ├── rules.js                  # testo delle regole e ricerca nel regolamento
 │   ├── cards.js                  # archivio, chip e dettaglio carte
 │   ├── history.js                # cronologia salvata sul dispositivo
+│   ├── storage.js                # salvataggi locali sicuri (localStorage)
 │   ├── score.js · score-model.js # segnapunti (interfaccia e regole di punteggio)
 │   ├── api.js                    # chiamate al server (e blocco con password)
 │   └── markdown.js               # rendering sicuro di risposte e simboli di gioco
@@ -184,20 +193,37 @@ npm test
 ```
 
 Verificano il riconoscimento delle carte, il regolamento (compattazione, ricerca, sezioni), le
-regole di punteggio del segnapunti, il rendering sicuro, la password e i limiti, lo scraper e
-l'intero flusso della chat (con Gemini simulato: streaming, retry, limiti, timeout, compressione).
+regole di punteggio del segnapunti, il rendering sicuro, la password e i limiti, il service worker,
+lo scraper e l'intero flusso della chat (con Gemini simulato: streaming, modelli di riserva, cache
+delle risposte, limiti, timeout, compressione).
 
-## Prestazioni
+## Prestazioni e consumi
 
+**Quota Gemini**
+- **Modello di riserva**: i limiti gratuiti sono per modello; al primo `429` il judge passa al modello
+  successivo e non riprova quello esaurito finché Gemini non lo consente, così non spreca richieste.
+- **Risposte già pronte**: la stessa domanda con le stesse carte e lo stesso punteggio (un esempio, un
+  doppio tocco) riceve la risposta già data, senza consumare quota. **Rigenera** ne chiede sempre una nuova.
+- **Follow-up leggeri**: nelle domande successive le risposte più vecchie viaggiano solo con il verdetto;
+  l'ultima risposta resta completa.
+- **Cache di Gemini**: il prompt con il regolamento è identico a ogni domanda, così Gemini lo riusa dalla
+  sua cache automatica; sotto ogni risposta vedi quanti token sono stati riusati.
 - **Regolamento compattato**: all'avvio il testo estratto dal PDF viene ripulito dall'impaginazione
   (spazi di colonna, righe spezzate, caratteri invisibili) senza perdere una parola: circa **6.000 token
   in meno a ogni domanda** (−8,5%), cioè risposte più rapide e più domande al minuto col piano gratuito.
 - **Carte**: il riconoscimento usa un indice per parole (circa 20 volte più veloce del confronto
   nome per nome) e invia al judge solo le carte citate.
+
+**Telefono (dati e batteria)**
+- **Service worker**: dopo la prima visita l'app si apre dalla memoria del telefono, senza scaricare nulla;
+  i file vengono riscaricati solo quando cambiano (compare *Nuova versione pronta*). Le regole e le
+  ricerche già fatte restano disponibili anche offline.
 - **Rete**: pagine e ricerche sono compresse (circa −70% di dati su rete mobile); lo stream delle
   risposte no, così resta in tempo reale.
-- **Interfaccia**: la risposta in streaming viene ridisegnata al massimo una volta per frame; i moduli JS
-  e i font si caricano in parallelo e senza bloccare la prima visualizzazione.
+- **Nessuna richiesta a siti esterni**: testo con il font di sistema (San Francisco su iPhone), titoli con
+  il font Cinzel servito dall'app stessa.
+- **Batteria**: niente sfocature ricalcolate durante lo scorrimento né animazioni infinite; la risposta in
+  streaming viene ridisegnata circa 12 volte al secondo invece che a ogni frame.
 
 ## Note
 

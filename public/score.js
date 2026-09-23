@@ -4,6 +4,7 @@
 import { MODES, KIND_LABEL, defaultNames, newGame, score, undo, nextRound, summary, toContext, restoreGame, atMatchPoint } from "./score-model.js";
 import { escapeHtml } from "./markdown.js";
 import { toast } from "./chat.js";
+import { load, store } from "./storage.js";
 
 const GAME_KEY = "jrb.game.v1";
 const SHARE_KEY = "jrb.game.share";
@@ -13,32 +14,8 @@ const dialog = document.getElementById("scoreDialog");
 const body = document.getElementById("scoreBody");
 const button = document.getElementById("openScore");
 
-const storage = {
-  get(key) {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  set(key, value) {
-    try {
-      if (value === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, value);
-    } catch {
-      /* storage unavailable: the game still works for this visit */
-    }
-  },
-};
-
-let game = (() => {
-  try {
-    return restoreGame(JSON.parse(storage.get(GAME_KEY)));
-  } catch {
-    return null;
-  }
-})();
-let share = storage.get(SHARE_KEY) !== "0";
+let game = restoreGame(load(GAME_KEY));
+let share = load(SHARE_KEY, 1) !== 0; // stored as 1/0
 let setup = game
   ? { mode: game.mode, names: game.players.map((p) => p.name), victory: game.victory }
   : { mode: "duel", names: [], victory: MODES.duel.victory };
@@ -48,13 +25,15 @@ let pending = null; // player whose Conquer at match point awaits the "all battl
 export const gameContext = () => (game && share ? toContext(game) : null);
 
 function save() {
-  storage.set(GAME_KEY, game ? JSON.stringify(game) : null);
+  store(GAME_KEY, game);
   button.querySelector(".score-chip").textContent = game ? summary(game) : "Punti";
   button.classList.toggle("live", Boolean(game));
   button.title = game ? "Segnapunti: partita in corso" : "Segnapunti";
 }
 
 const name = (i) => escapeHtml(game.players[i].name);
+/** "Tu vinci" but "Marco vince": the default first player is addressed directly. */
+const verb = (i, third, second) => (game.players[i].name.trim().toLowerCase() === "tu" ? second : third);
 const ruleRef = (id) => `<a class="rule-ref" href="#regola-${id}" data-rule="${id}">${id}</a>`;
 
 // --- Views -------------------------------------------------------------------
@@ -122,14 +101,14 @@ function playerCard(p, i) {
 function banner() {
   const m = MODES[game.mode];
   if (game.matchWinner !== null) {
-    return `<div class="win-banner">🏆 <span><strong>${name(game.matchWinner)}</strong> vince il match!</span>
+    return `<div class="win-banner">🏆 <span><strong>${name(game.matchWinner)}</strong> ${verb(game.matchWinner, "vince", "vinci")} il match!</span>
       <button type="button" class="primary-btn small" data-reset>Nuova partita</button></div>`;
   }
   if (game.winner === null) return "";
   const next = m.bestOf > 1
     ? `<button type="button" class="primary-btn small" data-next>Partita successiva</button>`
     : `<button type="button" class="primary-btn small" data-reset>Nuova partita</button>`;
-  return `<div class="win-banner">🏆 <span><strong>${name(game.winner)}</strong> vince la partita (${ruleRef("467")})</span>${next}</div>`;
+  return `<div class="win-banner">🏆 <span><strong>${name(game.winner)}</strong> ${verb(game.winner, "vince", "vinci")} la partita (${ruleRef("467")})</span>${next}</div>`;
 }
 
 function confirmBox() {
@@ -139,7 +118,7 @@ function confirmBox() {
   return `
     <div class="confirm" role="alertdialog" aria-labelledby="confirmTitle">
       <p id="confirmTitle"><strong>Punto vincente con una Conquista</strong></p>
-      <p>Vale solo se in questo turno <strong>${name(pending)}</strong> ha segnato <strong>tutti</strong> i battlefield,
+      <p>Vale solo se in questo turno <strong>${name(pending)}</strong> ${verb(pending, "ha", "hai")} segnato <strong>tutti</strong> i battlefield,
         con Conquista o Tenuta${team}. Altrimenti niente punto: si pesca 1 carta (${ruleRef("466.1.b.2")}).</p>
       <div class="confirm-acts">
         <button type="button" class="primary-btn" data-all="yes">Sì, tutti i battlefield</button>
@@ -201,7 +180,7 @@ function act(i, kind, allBattlefields) {
   render();
   navigator.vibrate?.(12);
   if (res.drew) toast("Niente punto vincente: si pesca 1 carta (466.1.b.2)");
-  else if (wasOpen && game.winner !== null) toast(`🏆 ${game.players[game.winner].name} vince la partita!`);
+  else if (wasOpen && game.winner !== null) toast(`🏆 ${game.players[game.winner].name} ${verb(game.winner, "vince", "vinci")} la partita!`);
 }
 
 function reset() {
@@ -215,7 +194,7 @@ function reset() {
 
 function onClick(e) {
   const t = e.target.closest("button");
-  if (!t || t.dataset.rule) return; // rule references are handled globally
+  if (!t) return;
   if (t.dataset.score) act(Number(t.dataset.player), t.dataset.score);
   else if (t.dataset.all) {
     if (t.dataset.all === "cancel") {
@@ -243,7 +222,7 @@ function onChange(e) {
     render();
   } else if ("share" in e.target.dataset) {
     share = e.target.checked;
-    storage.set(SHARE_KEY, share ? "1" : "0");
+    store(SHARE_KEY, share ? 1 : 0);
     toast(share ? "Il judge vedrà il punteggio" : "Il punteggio resta privato");
   }
 }

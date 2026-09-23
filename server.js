@@ -3,15 +3,21 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import express from "express";
 import compression from "compression";
-import { MODEL, HAS_API_KEY } from "./src/judge.js";
+import { MODELS, HAS_API_KEY } from "./src/judge.js";
 import { CARDS, DOMAINS, CARDS_UPDATED_AT, searchCards } from "./src/cards.js";
 import { RULE_COUNT, getRule, searchRules } from "./src/rules.js";
 import { createAskHandler } from "./src/ask.js";
 import { createAccessControl, rateLimit } from "./src/security.js";
+import { buildServiceWorker } from "./src/offline.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC = path.join(here, "public");
 const PORT = Number(process.env.PORT || 3000);
 const CARD_TYPES = [...new Set(CARDS.map((c) => c.type).filter(Boolean))].sort();
+
+// Built on first request: its version is a fingerprint of the app, rules and cards.
+let serviceWorker;
+const DATA_FILES = ["riftbound-core-rules.txt", "cards.json"].map((f) => path.join(here, "data", f));
 
 const str = (v, max = 100) => (typeof v === "string" ? v.slice(0, max) : "");
 const clamp = (v, fallback, max) => Math.min(Math.max(Number(v) || fallback, 1), max);
@@ -35,7 +41,18 @@ export function createApp({
   // of /api/ask: compressing it would buffer the answer instead of streaming it.
   app.use(compression({ filter: (req, res) => req.path !== "/api/ask" && compression.filter(req, res) }));
   app.use(express.json({ limit: "1mb" }));
-  app.use(express.static(path.join(here, "public")));
+  app.get("/sw.js", (_req, res) => {
+    serviceWorker ??= buildServiceWorker(PUBLIC, DATA_FILES);
+    res.type("js").set("Cache-Control", "no-cache").send(serviceWorker);
+  });
+  app.use(
+    express.static(PUBLIC, {
+      // Fonts and icons hardly ever change; the rest is revalidated (tiny 304s).
+      setHeaders(res, file) {
+        if (/[\\/](?:fonts|icons)[\\/]/.test(file)) res.set("Cache-Control", "public, max-age=604800");
+      },
+    }),
+  );
 
   const access = createAccessControl(password);
 
@@ -43,7 +60,7 @@ export function createApp({
     res.json({
       ok: true,
       locked: !access.authorized(req),
-      model: MODEL,
+      models: MODELS,
       hasApiKey: HAS_API_KEY,
       cards: CARDS.length,
       rules: RULE_COUNT,
@@ -89,7 +106,7 @@ export function createApp({
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   createApp().listen(PORT, () => {
     console.log(`\n⚖️  Judge Rift Bound in ascolto su http://localhost:${PORT}`);
-    console.log(`   Modello: ${MODEL}  |  Regole: ${RULE_COUNT}  |  Carte: ${CARDS.length}  |  GEMINI_API_KEY: ${HAS_API_KEY ? "trovata" : "MANCANTE"}`);
+    console.log(`   Modelli: ${MODELS.join(" → ")}  |  Regole: ${RULE_COUNT}  |  Carte: ${CARDS.length}  |  GEMINI_API_KEY: ${HAS_API_KEY ? "trovata" : "MANCANTE"}`);
     if (process.env.ACCESS_PASSWORD) console.log("   🔒 Accesso protetto da password (ACCESS_PASSWORD)");
     if (!HAS_API_KEY) console.log("   ⚠️  Crea una chiave GRATUITA su https://aistudio.google.com/apikey e mettila in .env");
     console.log("");

@@ -1,7 +1,7 @@
 {
   "name": "judge-riftbound",
   "version": "1.0.0",
-  "description": "Judge virtuale per Rift Bound: rispondi a domande di ruling ragionando sul regolamento ufficiale tramite Claude API.",
+  "description": "Judge virtuale per Rift Bound: ruling in tempo reale sul regolamento ufficiale e sul testo delle carte, con Google Gemini (piano gratuito).",
   "type": "module",
   "main": "server.js",
   "scripts": {

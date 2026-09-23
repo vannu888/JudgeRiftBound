@@ -238,38 +238,41 @@ function regenerate() {
   const last = chatEl.lastElementChild;
   if (last?.classList.contains("judge")) last.remove();
   saveSession(session);
-  ask();
+  ask({ fresh: true });
 }
 
-async function ask() {
+/** `fresh`: skip the server's cache of identical questions (a new answer is wanted). */
+async function ask({ fresh = false } = {}) {
   setBusy(true);
   controller = new AbortController();
   const ui = createJudgeMessage();
+  ui.root.classList.add("streaming");
   ui.content.innerHTML = `<span class="thinking">Il judge sta consultando le regole…</span>`;
   ui.content.classList.add("cursor");
 
   let answer = "";
   let reasoning = "";
   let cards = [];
-  let usage = null;
+  let meta = {}; // the "done" event: usage, model, cache
   let error = "";
   let retryAfter = 0;
   let stopped = false;
 
-  // Gemini streams many small chunks: repaint at most once per animation frame.
-  let frame = 0;
+  // Gemini streams many small chunks: repaint about 12 times a second, which
+  // still reads as live text but spares the phone's CPU (and battery).
+  let timer = 0;
   const paint = () => {
-    frame = 0;
+    timer = 0;
     ui.reasoningBody.textContent = reasoning;
     if (answer) ui.content.innerHTML = renderMarkdown(answer);
     scrollDown();
   };
   const schedule = () => {
-    frame ||= requestAnimationFrame(paint);
+    timer ||= setTimeout(paint, 80);
   };
   const flush = () => {
-    if (!frame) return;
-    cancelAnimationFrame(frame);
+    if (!timer) return;
+    clearTimeout(timer);
     paint();
   };
 
@@ -280,6 +283,7 @@ async function ask() {
       body: JSON.stringify({
         messages: session.messages.map(({ role, content }) => ({ role, content })),
         game: gameContext(),
+        fresh,
       }),
       signal: controller.signal,
     });
@@ -313,19 +317,21 @@ async function ask() {
               answer += data.text;
               schedule();
               break;
-            case "retry": // the server restarts after a transient error: drop partial output
+            case "retry": // the server starts over (another model or a retry): drop partial output
               flush();
               reasoning = "";
               answer = "";
               ui.reasoningBody.textContent = "";
-              ui.content.innerHTML = `<span class="thinking">Gemini è sovraccarico, riprovo…</span>`;
+              ui.content.innerHTML = `<span class="thinking">${
+                data.reason === "quota" ? "Limite raggiunto, passo al modello di riserva…" : "Gemini è sovraccarico, riprovo…"
+              }</span>`;
               break;
             case "error":
               error = data.message;
               retryAfter = data.retryAfter ?? 0;
               break;
             case "done":
-              usage = data.usage;
+              meta = data;
               break;
           }
         }
@@ -334,10 +340,13 @@ async function ask() {
   } catch (err) {
     if (err.name === "AbortError") stopped = true;
     else if (err instanceof LockedError) error = "Accesso protetto: inserisci la password e riprova.";
+    else if (!navigator.onLine)
+      error = "Sei offline: per le risposte del judge serve internet. Segnapunti, cronologia e regole già consultate funzionano anche offline.";
     else error = "Connessione interrotta. Riprova.";
   }
 
   flush(); // paint pending text first, so nothing overwrites the notes below
+  ui.root.classList.remove("streaming");
   ui.content.classList.remove("cursor");
   ui.content.querySelector(".thinking")?.remove();
   if (answer.trim()) {
@@ -347,11 +356,32 @@ async function ask() {
   if (stopped) addNote(ui, "⏹ Risposta interrotta.", "status");
   if (error) addNote(ui, `⚠️ ${error}`);
   const question = session.messages.findLast((m) => m.role === "user")?.content ?? "";
-  finishJudgeMessage(ui, { answer, question, usage, retryAfter, onRetry: regenerate });
+  finishJudgeMessage(ui, { answer, question, meta, retryAfter, onRetry: regenerate });
   controller = null;
   setBusy(false);
   inputEl.focus({ preventScroll: true });
 }
+
+// --- Offline use and updates (service worker) --------------------------------
+if ("serviceWorker" in navigator) {
+  const hadWorker = Boolean(navigator.serviceWorker.controller); // so a takeover means an update
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadWorker) $("updateBar").hidden = false;
+  });
+  navigator.serviceWorker
+    .register("/sw.js")
+    .then((reg) => {
+      // A Home Screen app is resumed rather than reloaded: look for updates then too.
+      let checked = Date.now();
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState !== "visible" || Date.now() - checked < 30 * 60_000) return;
+        checked = Date.now();
+        reg.update().catch(() => {});
+      });
+    })
+    .catch(() => {});
+}
+$("updateBar").addEventListener("click", () => location.reload());
 
 // --- Go ----------------------------------------------------------------------
 initScoreboard();

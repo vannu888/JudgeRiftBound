@@ -110,8 +110,25 @@ export function addNote(ui, message, kind = "error") {
 
 const fmt = (n) => Number(n ?? 0).toLocaleString("it-IT");
 
-/** Retry button disabled with a countdown while the free-tier limit resets. */
+/** "gemini-flash-lite-latest" -> "Flash-Lite" */
+const modelName = (id) =>
+  id.replace(/^gemini-/, "").replace(/-latest$/, "").replace(/(^|-)([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
+
+/** What the answer cost: tokens, the part Gemini reused from its cache, the model. */
+function usageLine({ usage, model, fallback, cached }) {
+  if (cached) return "⚡ Risposta già pronta: nessun consumo di quota";
+  const parts = [];
+  if (usage) {
+    const reused = usage.cached_tokens ? ` (${fmt(usage.cached_tokens)} dalla cache)` : "";
+    parts.push(`${fmt(usage.input_tokens)} token in${reused} · ${fmt(usage.output_tokens)} out`);
+  }
+  if (model && fallback) parts.push(`modello di riserva: ${modelName(model)}`);
+  return parts.join(" · ");
+}
+
+/** Retry button disabled with a countdown while the free-tier limit resets (short waits only). */
 function countdown(btn, seconds, label) {
+  if (seconds > 120) return;
   btn.disabled = true;
   const tick = () => {
     if (!btn.isConnected) return;
@@ -131,8 +148,8 @@ function countdown(btn, seconds, label) {
  * Footer of a finished judge message. Retry/regenerate is shown only on the
  * latest message (see CSS); `retryAfter` seconds keep it disabled.
  */
-export function finishJudgeMessage(ui, { answer = "", question = "", usage = null, retryAfter = 0, onRetry }) {
-  ui.usage.textContent = usage ? `${fmt(usage.input_tokens)} token in · ${fmt(usage.output_tokens)} out` : "";
+export function finishJudgeMessage(ui, { answer = "", question = "", meta = {}, retryAfter = 0, onRetry }) {
+  ui.usage.textContent = usageLine(meta);
   ui.copy.hidden = !answer;
   ui.share.hidden = !answer || !navigator.share;
   const text = () => (question ? `❓ ${question}\n\n⚖️ ${plainText(answer)}` : plainText(answer));

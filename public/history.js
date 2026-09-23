@@ -2,29 +2,20 @@
 // se Safari ricarica la pagina a metà partita, la conversazione non si perde.
 
 import { escapeHtml } from "./markdown.js";
+import { load, store } from "./storage.js";
 
 const KEY = "jrb.sessions.v1";
 const MAX_SESSIONS = 30;
 
 function read() {
-  try {
-    const list = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(list) ? list.filter((s) => s?.id && Array.isArray(s.messages) && s.messages.length) : [];
-  } catch {
-    return [];
-  }
+  const list = load(KEY, []);
+  return Array.isArray(list) ? list.filter((s) => s?.id && Array.isArray(s.messages) && s.messages.length) : [];
 }
 
 /** Save, dropping the oldest sessions if the browser storage is full. */
 function write(list) {
-  for (let n = list.length; n >= 0; n--) {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(list.slice(0, n)));
-      return;
-    } catch {
-      /* quota exceeded (or storage disabled): retry with fewer sessions */
-    }
-  }
+  let n = list.length;
+  while (n >= 0 && !store(KEY, list.slice(0, n))) n--;
 }
 
 // crypto.randomUUID needs https; this also works on http://192.168… in the home Wi-Fi.

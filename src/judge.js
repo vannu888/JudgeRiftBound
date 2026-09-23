@@ -6,10 +6,13 @@ import { formatCardsBlock } from "./cards.js";
 import { RULES_TEXT } from "./rules.js";
 
 // --- Configuration (override via environment variables) ---
-// gemini-flash-latest: alias che punta sempre al modello Flash stabile corrente.
-// Alternative: gemini-flash-lite-latest (limiti più alti), gemini-pro-latest (più bravo),
-// oppure una versione fissa come gemini-3.6-flash.
-export const MODEL = process.env.JUDGE_MODEL || "gemini-flash-latest";
+// Models in order of preference. On the free tier every model has its own quota,
+// so when the first one hits its limit the judge moves on to the next instead of
+// making the player wait. "-latest" aliases always point to the current stable model.
+export const MODELS = (process.env.JUDGE_MODEL || "gemini-flash-latest,gemini-flash-lite-latest")
+  .split(",")
+  .map((m) => m.trim())
+  .filter(Boolean);
 // Budget di "thinking": -1 = automatico (il modello decide), 0 = disattivato.
 const THINKING_BUDGET = Number(process.env.JUDGE_THINKING_BUDGET ?? -1);
 
@@ -19,6 +22,10 @@ export const HAS_API_KEY = Boolean(API_KEY);
 
 export const MAX_MESSAGES = 40; // safety cap on conversation length
 export const MAX_CHARS = 8000; // safety cap on a single message
+
+// Follow-ups resend the conversation: the latest answer travels in full, older
+// ones only with their opening (the verdict), which is what later questions build on.
+const OLD_ANSWER_CHARS = 700;
 
 // Created on first use, so importing this module never needs a key.
 let client;
@@ -107,6 +114,13 @@ export function formatGameBlock(game) {
   return `[STATO PARTITA dal segnapunti] Modalità: ${MODES[game.mode]}. Punti per vincere: ${game.victory}. Punteggio: ${score}.`;
 }
 
+/** An old answer cut to its opening paragraphs. */
+export function shortenAnswer(text) {
+  if (text.length <= OLD_ANSWER_CHARS) return text;
+  const cut = text.lastIndexOf("\n", OLD_ANSWER_CHARS);
+  return `${text.slice(0, cut > OLD_ANSWER_CHARS / 2 ? cut : OLD_ANSWER_CHARS).trimEnd()}\n[… risposta precedente abbreviata]`;
+}
+
 /**
  * Convert to Gemini `contents`. The text of the cited cards and the current
  * score go into the latest question (not into the system prompt, which must
@@ -114,22 +128,21 @@ export function formatGameBlock(game) {
  */
 export function buildContents(messages, cards = [], game = null) {
   const lastUser = messages.findLastIndex((m) => m.role === "user");
+  const lastAnswer = messages.findLastIndex((m) => m.role === "assistant");
   const context = [];
   if (cards.length) context.push({ text: formatCardsBlock(cards) });
   if (game) context.push({ text: formatGameBlock(game) });
-  return messages.map((m, i) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts:
-      i === lastUser && context.length
-        ? [...context, { text: `Domanda del giocatore:\n${m.content}` }]
-        : [{ text: m.content }],
-  }));
+  return messages.map((m, i) => {
+    if (m.role === "assistant") return { role: "model", parts: [{ text: i < lastAnswer ? shortenAnswer(m.content) : m.content }] };
+    const question = context.length && i === lastUser ? [...context, { text: `Domanda del giocatore:\n${m.content}` }] : [{ text: m.content }];
+    return { role: "user", parts: question };
+  });
 }
 
 /** Open a streaming judge response. Resolves to an AsyncGenerator of chunks. */
-export function streamJudge(contents, abortSignal) {
+export function streamJudge(contents, abortSignal, model = MODELS[0]) {
   return ai().models.generateContentStream({
-    model: MODEL,
+    model,
     contents,
     config: {
       systemInstruction: SYSTEM_INSTRUCTIONS,
