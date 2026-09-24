@@ -101,7 +101,6 @@ export function toRecord(card) {
     tags: card.tags?.length ? card.tags : undefined,
     text: cleanText(card.description),
     effect: cleanText(card.effect),
-    attachText: cleanText(card.attachText),
     maxCopies: card.maxCopies ?? undefined,
     bannedFrom: card.banEffectiveDate ?? undefined,
     codes: [],

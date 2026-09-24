@@ -3,6 +3,7 @@
 
 import { request, getJSON, LockedError } from "./api.js";
 import { escapeHtml, withRuleRefs } from "./markdown.js";
+import { icon } from "./icons.js";
 
 const dialog = document.getElementById("ruleDialog");
 const titleEl = document.getElementById("ruleTitle");
@@ -60,21 +61,29 @@ function renderMissing(ref) {
   const safe = escapeHtml(ref);
   body.innerHTML = isNumber(ref)
     ? `<div class="rule-missing">
-        <p>⚠️ La regola <strong>${safe}</strong> non esiste nel regolamento.</p>
+        <p class="missing-title">${icon("alert")}La regola <strong>${safe}</strong> non esiste nel regolamento.</p>
         <p class="muted">Se l'ha citata il judge, potrebbe aver sbagliato numero: verifica cercando nel regolamento.</p>
-        <button type="button" class="chip-btn" data-search-rules="${safe}">🔎 Cerca nel regolamento</button>
+        <button type="button" class="chip-btn" data-search-rules="${safe}">${icon("search")}Cerca nel regolamento</button>
       </div>`
     : `<div class="rule-missing">
         <p>Nessuna voce del glossario dedicata a <strong>${safe}</strong>.</p>
-        <button type="button" class="chip-btn" data-search-rules="${safe}">🔎 Cerca «${safe}» nel regolamento</button>
+        <button type="button" class="chip-btn" data-search-rules="${safe}">${icon("search")}Cerca «${safe}» nel regolamento</button>
       </div>`;
 }
 
-/** Wrap the query words in <mark> (text is escaped first). */
+/** Escaped text with every word containing a query word wrapped in <mark>. */
 function highlight(s, q) {
-  const words = q.split(/\s+/).filter((w) => w.length > 1).map((w) => escapeHtml(w).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const html = escapeHtml(s);
-  return words.length ? html.replace(new RegExp(`(${words.join("|")})`, "gi"), "<mark>$1</mark>") : html;
+  const words = q.split(/\s+/).filter((w) => w.length > 1).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (!words.length) return escapeHtml(s);
+  // Match on the plain text (not the escaped HTML, whose "&amp;" must stay intact).
+  const re = new RegExp(`[\\p{L}\\p{N}]*(?:${words.join("|")})[\\p{L}\\p{N}]*`, "giu");
+  let html = "";
+  let last = 0;
+  for (const m of s.matchAll(re)) {
+    html += `${escapeHtml(s.slice(last, m.index))}<mark>${escapeHtml(m[0])}</mark>`;
+    last = m.index + m[0].length;
+  }
+  return html + escapeHtml(s.slice(last));
 }
 
 /** The "Regole" tab of the archive. */

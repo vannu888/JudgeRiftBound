@@ -42,3 +42,17 @@ test("rule citations become buttons, other numbers stay text", () => {
   assert.deepEqual(refs("100 carte, 250.000 token, anno 2026, 6.5 punti, 3 carte, 100 punti"), []);
   assert.match(renderMarkdown("Vedi (340.1)."), /<a class="rule-ref" href="#regola-340.1" data-rule="340.1"/);
 });
+
+test("answers are split into sections: verdict, why, rules", () => {
+  const html = renderMarkdown("### Verdetto\nSì.\n\n### Perché\nMotivo.\n\n### Regole\n- 466 — Winning Point\n- 340.1: chain");
+  assert.match(html, /^<section class="sec sec-verdict"><h3>Verdetto<\/h3><p>Sì\.<\/p><\/section>/);
+  assert.match(html, /<section class="sec sec-why"><h3>Perché<\/h3>/);
+  // In the rules list a leading bare number is a citation too.
+  assert.match(html, /<section class="sec sec-rules">[\s\S]*<li><a class="rule-ref" [^>]*data-rule="466"/);
+  assert.match(html, /<\/section>$/);
+  // A bold lead-in works like a heading; other bold text does not.
+  const bold = renderMarkdown("**Verdetto:** No, non puoi.\n\nTesto **normale**.");
+  assert.match(bold, /^<section class="sec sec-verdict"><h3>Verdetto<\/h3><p>No, non puoi\.<\/p>/);
+  assert.match(bold, /Testo <strong>normale<\/strong>/);
+  assert.equal(renderMarkdown("Solo testo."), "<p>Solo testo.</p>");
+});

@@ -21,6 +21,7 @@
     <!-- Fetch the app modules in parallel instead of one after another. -->
     <link rel="modulepreload" href="/app.js" />
     <link rel="modulepreload" href="/api.js" />
+    <link rel="modulepreload" href="/icons.js" />
     <link rel="modulepreload" href="/markdown.js" />
     <link rel="modulepreload" href="/chat.js" />
     <link rel="modulepreload" href="/cards.js" />
@@ -31,11 +32,39 @@
     <link rel="modulepreload" href="/score-model.js" />
   </head>
   <body>
+    <!-- Icon set: line icons drawn for this app, coloured by the surrounding text (see .i in the CSS). -->
+    <svg class="sprite" aria-hidden="true" focusable="false">
+      <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M7 4h10v4.5a5 5 0 0 1-10 0z" /><path d="M7 6H4.5a2.5 2.5 0 0 0 2.8 3.4M17 6h2.5a2.5 2.5 0 0 1-2.8 3.4M12 13.5V17M8.5 20.5h7l-1-3.5h-5z" /></symbol>
+      <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.6 12A8.5 8.5 0 1 0 6 6" /><path d="M3.5 3.5v4h4M12 7.5V12l3 2" /></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5c-3.5-.5-6.5 0-8.5 1.5zM12 6.5v13" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></symbol>
+      <symbol id="i-cards" viewBox="0 0 24 24"><rect x="9" y="4" width="10.5" height="15" rx="2" /><path d="M6.5 7.3 4.3 8.1a1.6 1.6 0 0 0-1 2l3.4 9.4a1.6 1.6 0 0 0 2 1l3.1-1.1" /></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 3 5 13.5h6.5L10.5 21 19 10.5h-6.5z" /></symbol>
+      <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5.5 21V4M5.5 4.5c4-2 6.5 2 11-.5v8.5c-4.5 2.5-7-1.5-11 .5" /></symbol>
+      <symbol id="i-move" viewBox="0 0 24 24"><circle cx="5.5" cy="17.5" r="2" /><path d="M7.5 17c4.5-.5 9.5-3 11.5-9.5M15.5 8.5 19 7l1 3.8" /></symbol>
+      <symbol id="i-castle" viewBox="0 0 24 24"><path d="M5 20.5V8h2.3V5h2.3v3h2.8V5h2.3v3h2.3V5H19v15.5z" /><path d="M10 20.5v-3.5a2 2 0 0 1 4 0v3.5" /></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></symbol>
+      <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 4v16M8 20h8M5 7h14M5 7l-2.5 6M5 7l2.5 6M19 7l-2.5 6M19 7l2.5 6M2.5 13a2.5 2.5 0 0 0 5 0zM16.5 13a2.5 2.5 0 0 0 5 0z" /></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5 10 14M20.5 3.5l-6.5 17-4-6.5-6.5-4z" /></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor" /></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2" /><path d="M15.5 8.5V6A1.5 1.5 0 0 0 14 4.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5" /></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3.5v11M8 7.5l4-4 4 4M8.5 10.5h-2A1.5 1.5 0 0 0 5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2" /></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v4.5H15" /></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></symbol>
+      <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9zM18.5 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" /></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" /></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6.5 9.5 5.5 5.5 5.5-5.5" /></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4zM12 10v4.5M12 17h.01" /></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13" /></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></symbol>
+    </svg>
+
     <div class="aurora" aria-hidden="true"></div>
     <div class="app">
       <header class="topbar">
         <div class="brand">
-          <img class="brand-mark" src="/icons/icon.svg" alt="" width="34" height="34" />
+          <img class="brand-mark" src="/icons/icon.svg" alt="" width="36" height="36" />
           <div class="brand-text">
             <h1>Judge Rift Bound</h1>
             <p>Il tuo arbitro virtuale, in tempo reale</p>
@@ -43,23 +72,24 @@
         </div>
         <nav class="actions" aria-label="Menu">
           <button id="openScore" class="ghost-btn score-btn" title="Segnapunti">
-            <span aria-hidden="true">🏆</span><span class="score-chip">Punti</span>
+            <svg class="i" aria-hidden="true"><use href="#i-trophy" /></svg><span class="score-chip">Punti</span>
           </button>
-          <button id="openHistory" class="ghost-btn" title="Cronologia">
-            <span aria-hidden="true">🕘</span><span class="lbl">Cronologia</span>
+          <button id="openHistory" class="ghost-btn" title="Cronologia" aria-label="Cronologia">
+            <svg class="i" aria-hidden="true"><use href="#i-history" /></svg><span class="lbl">Cronologia</span>
           </button>
-          <button id="openArchive" class="ghost-btn" title="Archivio carte e regole">
-            <span aria-hidden="true">📚</span><span class="lbl">Archivio</span>
+          <button id="openArchive" class="ghost-btn" title="Archivio carte e regole" aria-label="Archivio">
+            <svg class="i" aria-hidden="true"><use href="#i-book" /></svg><span class="lbl">Archivio</span>
           </button>
-          <button id="newChat" class="ghost-btn" title="Nuova domanda">
-            <span aria-hidden="true">＋</span><span class="lbl">Nuova</span>
+          <button id="newChat" class="ghost-btn" title="Nuova domanda" aria-label="Nuova domanda">
+            <svg class="i" aria-hidden="true"><use href="#i-plus" /></svg><span class="lbl">Nuova</span>
           </button>
         </nav>
       </header>
 
       <div id="apiWarning" class="api-warning" hidden>
-        ⚠️ Chiave API non configurata sul server. Imposta <code>GEMINI_API_KEY</code> nel file
-        <code>.env</code> e riavvia.
+        <svg class="i" aria-hidden="true"><use href="#i-alert" /></svg>
+        <span>Chiave API non configurata sul server. Imposta <code>GEMINI_API_KEY</code> nel file
+          <code>.env</code> e riavvia.</span>
       </div>
 
       <main id="chat" class="chat" aria-live="polite">
@@ -75,17 +105,17 @@
           <p class="examples-label">Prova con un esempio</p>
           <div class="examples">
             <button class="example">
-              <span class="ex-icon" aria-hidden="true">⚔️</span>
+              <span class="ex-icon" aria-hidden="true"><svg class="i"><use href="#i-move" /></svg></span>
               <span>Il mio Vi, Destructive ha Ganking: può spostarsi su un altro battlefield durante
                 lo showdown dell'avversario?</span>
             </button>
             <button class="example">
-              <span class="ex-icon" aria-hidden="true">🔗</span>
+              <span class="ex-icon" aria-hidden="true"><svg class="i"><use href="#i-link" /></svg></span>
               <span>L'avversario gioca Falling Comet sulla mia unità: posso rispondere con una
                 Reaction? In che ordine si risolve la chain?</span>
             </button>
             <button class="example">
-              <span class="ex-icon" aria-hidden="true">🏆</span>
+              <span class="ex-icon" aria-hidden="true"><svg class="i"><use href="#i-trophy" /></svg></span>
               <span>Mi manca un punto per vincere: se conquisto un battlefield ma non ho segnato
                 l'altro in questo turno, vinco?</span>
             </button>
@@ -106,7 +136,7 @@
           ></textarea>
           <button id="send" type="submit" title="Invia (Invio)">
             <span class="send-label">Chiedi al judge</span>
-            <span class="send-icon" aria-hidden="true">➤</span>
+            <svg class="i send-icon" aria-hidden="true"><use href="#i-send" /></svg>
           </button>
         </form>
         <p class="disclaimer">
@@ -120,16 +150,19 @@
     <dialog id="archive" class="drawer" aria-labelledby="archiveTitle">
       <div class="dlg-inner">
         <div class="drawer-head">
-          <h2 id="archiveTitle">Archivio</h2>
-          <button type="button" class="icon-btn" data-close aria-label="Chiudi">✕</button>
+          <h2 id="archiveTitle"><svg class="i" aria-hidden="true"><use href="#i-book" /></svg>Archivio</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Chiudi"><svg class="i" aria-hidden="true"><use href="#i-close" /></svg></button>
         </div>
         <div class="tabs" role="tablist" aria-label="Sezioni dell'archivio">
-          <button type="button" role="tab" data-tab="cards" aria-selected="true">🃏 Carte</button>
-          <button type="button" role="tab" data-tab="rules" aria-selected="false">📖 Regole</button>
+          <button type="button" role="tab" data-tab="cards" aria-selected="true"><svg class="i" aria-hidden="true"><use href="#i-cards" /></svg>Carte</button>
+          <button type="button" role="tab" data-tab="rules" aria-selected="false"><svg class="i" aria-hidden="true"><use href="#i-book" /></svg>Regole</button>
         </div>
         <section data-panel="cards">
           <div class="drawer-tools">
-            <input id="cardSearch" class="field" type="search" placeholder="Cerca per nome, testo o keyword…" autocomplete="off" enterkeyhint="search" aria-label="Cerca carte" />
+            <label class="search">
+              <svg class="i" aria-hidden="true"><use href="#i-search" /></svg>
+              <input id="cardSearch" class="field" type="search" placeholder="Cerca per nome, testo o keyword…" autocomplete="off" enterkeyhint="search" aria-label="Cerca carte" />
+            </label>
             <div class="filters">
               <div id="domainFilters" class="domain-filters" role="group" aria-label="Filtra per dominio"></div>
               <select id="typeFilter" class="field" aria-label="Filtra per tipo">
@@ -143,7 +176,10 @@
         </section>
         <section data-panel="rules" hidden>
           <div class="drawer-tools">
-            <input id="ruleSearch" class="field" type="search" placeholder="Cerca nel regolamento (es. showdown, 340.1)…" autocomplete="off" enterkeyhint="search" aria-label="Cerca nel regolamento" />
+            <label class="search">
+              <svg class="i" aria-hidden="true"><use href="#i-search" /></svg>
+              <input id="ruleSearch" class="field" type="search" placeholder="Cerca nel regolamento (es. showdown, 340.1)…" autocomplete="off" enterkeyhint="search" aria-label="Cerca nel regolamento" />
+            </label>
           </div>
           <p id="ruleCount" class="card-count"></p>
           <div id="ruleResults" class="rule-results"></div>
@@ -155,8 +191,8 @@
     <dialog id="cardDialog" class="card-dialog" aria-labelledby="cardDialogTitle">
       <div class="dlg-inner">
         <div class="drawer-head">
-          <h2 id="cardDialogTitle">Testo della carta</h2>
-          <button type="button" class="icon-btn" data-close aria-label="Chiudi">✕</button>
+          <h2 id="cardDialogTitle"><svg class="i" aria-hidden="true"><use href="#i-cards" /></svg>Testo della carta</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Chiudi"><svg class="i" aria-hidden="true"><use href="#i-close" /></svg></button>
         </div>
         <div id="cardDialogBody"></div>
       </div>
@@ -167,7 +203,7 @@
       <div class="dlg-inner">
         <div class="drawer-head">
           <h2 id="ruleTitle">Regola</h2>
-          <button type="button" class="icon-btn" data-close aria-label="Chiudi">✕</button>
+          <button type="button" class="icon-btn" data-close aria-label="Chiudi"><svg class="i" aria-hidden="true"><use href="#i-close" /></svg></button>
         </div>
         <div id="ruleBody"></div>
       </div>
@@ -177,11 +213,13 @@
     <dialog id="historyDialog" class="drawer" aria-labelledby="historyTitle">
       <div class="dlg-inner">
         <div class="drawer-head">
-          <h2 id="historyTitle">Cronologia</h2>
-          <button type="button" class="icon-btn" data-close aria-label="Chiudi">✕</button>
+          <h2 id="historyTitle"><svg class="i" aria-hidden="true"><use href="#i-history" /></svg>Cronologia</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Chiudi"><svg class="i" aria-hidden="true"><use href="#i-close" /></svg></button>
         </div>
         <div id="historyList"></div>
-        <button id="clearHistory" type="button" class="chip-btn danger clear-all" hidden>Cancella tutta la cronologia</button>
+        <button id="clearHistory" type="button" class="chip-btn danger clear-all" hidden>
+          <svg class="i" aria-hidden="true"><use href="#i-trash" /></svg>Cancella tutta la cronologia
+        </button>
       </div>
     </dialog>
 
@@ -189,8 +227,8 @@
     <dialog id="scoreDialog" class="drawer score-drawer" aria-labelledby="scoreTitle">
       <div class="dlg-inner">
         <div class="drawer-head">
-          <h2 id="scoreTitle">Segnapunti</h2>
-          <button type="button" class="icon-btn" data-close aria-label="Chiudi">✕</button>
+          <h2 id="scoreTitle"><svg class="i" aria-hidden="true"><use href="#i-trophy" /></svg>Segnapunti</h2>
+          <button type="button" class="icon-btn" data-close aria-label="Chiudi"><svg class="i" aria-hidden="true"><use href="#i-close" /></svg></button>
         </div>
         <div id="scoreBody"></div>
       </div>
@@ -204,11 +242,13 @@
         <p class="muted">Inserisci la password per usare il judge.</p>
         <input id="lockPassword" class="field" type="password" autocomplete="current-password" required aria-label="Password" />
         <p id="lockError" class="error-note" hidden></p>
-        <button class="primary-btn" type="submit">Entra</button>
+        <button class="primary-btn" type="submit"><svg class="i" aria-hidden="true"><use href="#i-lock" /></svg>Entra</button>
       </form>
     </div>
 
-    <button id="updateBar" class="update-bar" type="button" hidden>🔄 Nuova versione pronta · tocca per aggiornare</button>
+    <button id="updateBar" class="update-bar" type="button" hidden>
+      <svg class="i" aria-hidden="true"><use href="#i-refresh" /></svg>Nuova versione pronta · tocca per aggiornare
+    </button>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script src="/app.js" type="module"></script>

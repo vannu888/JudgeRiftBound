@@ -97,7 +97,8 @@ versioni. Apostrofi e punteggiatura sono facoltativi (`Kaisa`, `BF Sword`, `Mega
 risposta vedi le **carte considerate**: toccane una per leggerne il testo. Se non ricordi il nome
 esatto, apri **📚 Archivio → Carte**, cerca e premi **Usa nella domanda**.
 
-I **numeri delle regole** nella risposta (es. `340.1`) si toccano per leggerne il testo ufficiale: se
+Ogni risposta è divisa in **Verdetto** (in evidenza, da leggere al volo durante la partita),
+**Perché** e **Regole** applicate. I **numeri delle regole** (es. `340.1`) si toccano per leggerne il testo ufficiale: se
 il judge citasse una regola che non esiste, l'app lo segnala. Sotto ogni risposta trovi **Copia**,
 **Condividi** e **Rigenera**; mentre il judge scrive, il pulsante di invio diventa **Stop**. Le
 conversazioni restano in **🕘 Cronologia** e, se ricarichi la pagina durante una partita, riprendi da

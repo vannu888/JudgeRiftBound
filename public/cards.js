@@ -2,6 +2,7 @@
 
 import { escapeHtml, renderCardText, domainColor } from "./markdown.js";
 import { getJSON, LockedError } from "./api.js";
+import { icon } from "./icons.js";
 
 const COSTED = new Set(["Unit", "Unit Gear", "Spell", "Gear"]);
 const TYPE_LABEL = {
@@ -54,7 +55,7 @@ export function cardTileHtml(c, { insert = true } = {}) {
       ${c.effect ? `<div class="ct-text ct-effect"><span class="ct-label">Quando è attaccato</span>${renderCardText(c.effect)}</div>` : ""}
       <footer>
         <span class="ct-codes">${escapeHtml((c.codes ?? []).slice(0, 3).join(" · "))}</span>
-        ${insert ? `<button type="button" class="chip-btn" data-insert="${escapeHtml(c.name)}">＋ Usa nella domanda</button>` : ""}
+        ${insert ? `<button type="button" class="chip-btn" data-insert="${escapeHtml(c.name)}">${icon("plus")}Usa nella domanda</button>` : ""}
       </footer>
     </article>`;
 }
@@ -78,7 +79,7 @@ export function renderCardChips(container, cards) {
   container.hidden = false;
   const label = document.createElement("span");
   label.className = "cards-used-label";
-  label.textContent = `🃏 Carte considerate (${cards.length})`;
+  label.innerHTML = `${icon("cards")}Carte considerate (${cards.length})`;
   container.append(label);
   for (const card of cards) {
     const chip = document.createElement("button");

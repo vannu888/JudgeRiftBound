@@ -4,7 +4,7 @@
 
 export const MODES = {
   duel: { label: "1v1 · Duello", players: 2, victory: 8, bestOf: 1, rule: "480" },
-  match: { label: "1v1 · Match al meglio di 3", players: 2, victory: 8, bestOf: 3, rule: "481" },
+  match: { label: "1v1 · Al meglio di 3", players: 2, victory: 8, bestOf: 3, rule: "481" },
   ffa3: { label: "Tutti contro tutti · 3", players: 3, victory: 8, bestOf: 1, rule: "482" },
   ffa4: { label: "Tutti contro tutti · 4", players: 4, victory: 8, bestOf: 1, rule: "483" },
   team: { label: "2v2 · Squadre", players: 2, victory: 11, bestOf: 1, rule: "484", teams: true },
@@ -107,7 +107,8 @@ export function restoreGame(raw) {
       points: Math.max(0, Math.trunc(Number(raw.players[i]?.points) || 0)),
       wins: Math.max(0, Math.trunc(Number(raw.players[i]?.wins) || 0)),
     }));
-    g.log = Array.isArray(raw.log) ? raw.log.filter((e) => g.players[e?.player] && Object.hasOwn(KIND_LABEL, e.kind)) : [];
+    const valid = (e) => g.players[e?.player] && Object.hasOwn(KIND_LABEL, e.kind) && [-1, 0, 1].includes(e.delta);
+    g.log = Array.isArray(raw.log) ? raw.log.filter(valid) : [];
     g.round = Math.max(1, Math.trunc(Number(raw.round) || 1));
     g.winner = winnerOf(g);
     g.matchWinner = Number.isInteger(raw.matchWinner) && g.players[raw.matchWinner] ? raw.matchWinner : null;

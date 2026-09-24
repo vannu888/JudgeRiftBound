@@ -3,6 +3,7 @@
 
 import { escapeHtml } from "./markdown.js";
 import { load, store } from "./storage.js";
+import { icon } from "./icons.js";
 
 const KEY = "jrb.sessions.v1";
 const MAX_SESSIONS = 30;
@@ -52,7 +53,7 @@ function itemHtml(s, current) {
         <span class="h-title">${escapeHtml(s.title)}</span>
         <span class="h-meta">${n} ${n === 1 ? "domanda" : "domande"} · ${relativeTime(s.updatedAt)}${s.id === current ? " · <b>aperta</b>" : ""}</span>
       </button>
-      <button type="button" class="icon-btn small" data-delete="${s.id}" aria-label="Elimina la sessione">✕</button>
+      <button type="button" class="icon-btn small" data-delete="${s.id}" aria-label="Elimina la sessione">${icon("trash")}</button>
     </li>`;
 }
 
@@ -69,7 +70,7 @@ export function initHistory({ onOpen, current }) {
     const sessions = listSessions();
     list.innerHTML = sessions.length
       ? `<ul class="history-list">${sessions.map((s) => itemHtml(s, current())).join("")}</ul>`
-      : `<p class="muted">Nessuna sessione salvata. Le conversazioni restano solo su questo dispositivo.</p>`;
+      : `<div class="empty">${icon("history")}<p>Nessuna conversazione salvata.</p><p class="muted small">Le domande al judge restano solo su questo dispositivo.</p></div>`;
     clear.hidden = !sessions.length;
   };
 
@@ -108,7 +109,7 @@ export function renderRecent(container, onOpen) {
       .map(
         (s) => `
         <button type="button" class="recent-item" data-open="${s.id}">
-          <span class="ex-icon" aria-hidden="true">🕘</span>
+          <span class="ex-icon" aria-hidden="true">${icon("history")}</span>
           <span class="r-text"><span class="h-title">${escapeHtml(s.title)}</span>
           <span class="h-meta">${relativeTime(s.updatedAt)}</span></span>
         </button>`,

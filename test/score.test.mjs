@@ -87,4 +87,9 @@ test("context for the judge and restore from storage", () => {
   assert.equal(restored.log.length, 3);
   assert.equal(restoreGame({ mode: "hack" }), null);
   assert.equal(restoreGame(null), null);
+
+  // A tampered log entry could make "undo" jump the score: it is dropped.
+  const tampered = JSON.parse(JSON.stringify(g));
+  tampered.log.push({ player: 0, kind: "other", delta: 50 });
+  assert.equal(restoreGame(tampered).log.length, 3);
 });

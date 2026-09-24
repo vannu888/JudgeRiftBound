@@ -5,6 +5,7 @@ import { openRule, initRulesPanel } from "./rules.js";
 import { addUserMessage, createJudgeMessage, finishJudgeMessage, addNote, scrollDown, toast } from "./chat.js";
 import { newSession, saveSession, listSessions, initHistory, renderRecent } from "./history.js";
 import { initScoreboard, gameContext } from "./score.js";
+import { icon } from "./icons.js";
 
 const $ = (id) => document.getElementById(id);
 const chatEl = $("chat");
@@ -22,7 +23,7 @@ let busy = false;
 let controller = null;
 let panels = null; // archive tabs, ready once the card data is known
 
-// --- Dialogs: close with ✕ or by tapping outside --------------------------------
+// --- Dialogs: close with the X or by tapping outside ------------------------------
 for (const dlg of document.querySelectorAll("dialog")) {
   dlg.addEventListener("click", (e) => {
     if (e.target === dlg || e.target.closest("[data-close]")) dlg.close();
@@ -95,11 +96,18 @@ $("lockForm").addEventListener("submit", async (e) => {
   }
 });
 
-async function start() {
+let startTimer;
+async function start(attempt = 0) {
+  clearTimeout(startTimer);
   let health;
   try {
-    health = await (await fetch("/api/health")).json();
+    const res = await fetch("/api/health");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    health = await res.json();
   } catch {
+    // The free server may still be waking up: try again for a couple of minutes
+    // (and whenever the phone gets back online, see below).
+    if (attempt < 8) startTimer = setTimeout(() => start(attempt + 1), Math.min(30_000, 2000 * 2 ** attempt));
     return;
   }
   if (health.locked) {
@@ -109,13 +117,16 @@ async function start() {
   }
   $("apiWarning").hidden = health.hasApiKey;
   setDomainColors(health.domains);
-  const stats = [["📖", `${health.rules} regole`], ["🃏", `${health.cards} carte`], ["⚡", "Gemini"]];
-  $("stats").innerHTML = stats.map(([i, t]) => `<span><span aria-hidden="true">${i}</span> ${t}</span>`).join("");
+  const stats = [["book", `${health.rules} regole`], ["cards", `${health.cards} carte`], ["bolt", "Gemini"]];
+  $("stats").innerHTML = stats.map(([i, t]) => `<span>${icon(i)}${t}</span>`).join("");
   $("stats").hidden = false;
-  panels ??= {
-    cards: initCardBrowser({ domains: health.domains, types: health.cardTypes, onInsert: insertCardName }),
-    rules: initRulesPanel(),
-  };
+  if (!panels) {
+    panels = {
+      cards: initCardBrowser({ domains: health.domains, types: health.cardTypes, onInsert: insertCardName }),
+      rules: initRulesPanel(),
+    };
+    if (archive.open) openArchive(); // opened while the server was still waking up
+  }
 }
 
 // --- Composer ------------------------------------------------------------------
@@ -151,7 +162,7 @@ function setBusy(state) {
   sendBtn.classList.toggle("stop", state);
   sendBtn.title = state ? "Ferma la risposta" : "Invia (Invio)";
   sendBtn.querySelector(".send-label").textContent = state ? "Stop" : "Chiedi al judge";
-  sendBtn.querySelector(".send-icon").textContent = state ? "■" : "➤";
+  sendBtn.querySelector(".send-icon use").setAttribute("href", state ? "#i-stop" : "#i-send");
 }
 
 formEl.addEventListener("submit", (e) => {
@@ -243,6 +254,9 @@ function regenerate() {
 
 /** `fresh`: skip the server's cache of identical questions (a new answer is wanted). */
 async function ask({ fresh = false } = {}) {
+  // Another conversation may be opened while this one is answered: the answer
+  // (even a partial one) belongs to the conversation that asked.
+  const current = session;
   setBusy(true);
   controller = new AbortController();
   const ui = createJudgeMessage();
@@ -281,7 +295,7 @@ async function ask({ fresh = false } = {}) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        messages: session.messages.map(({ role, content }) => ({ role, content })),
+        messages: current.messages.map(({ role, content }) => ({ role, content })),
         game: gameContext(),
         fresh,
       }),
@@ -350,12 +364,12 @@ async function ask({ fresh = false } = {}) {
   ui.content.classList.remove("cursor");
   ui.content.querySelector(".thinking")?.remove();
   if (answer.trim()) {
-    session.messages.push({ role: "assistant", content: answer, cards });
-    saveSession(session);
+    current.messages.push({ role: "assistant", content: answer, cards });
+    saveSession(current);
   }
-  if (stopped) addNote(ui, "⏹ Risposta interrotta.", "status");
-  if (error) addNote(ui, `⚠️ ${error}`);
-  const question = session.messages.findLast((m) => m.role === "user")?.content ?? "";
+  if (stopped) addNote(ui, "Risposta interrotta.", "stopped");
+  if (error) addNote(ui, error);
+  const question = current.messages.findLast((m) => m.role === "user")?.content ?? "";
   finishJudgeMessage(ui, { answer, question, meta, retryAfter, onRetry: regenerate });
   controller = null;
   setBusy(false);
@@ -386,6 +400,7 @@ $("updateBar").addEventListener("click", () => location.reload());
 // --- Go ----------------------------------------------------------------------
 initScoreboard();
 start();
+window.addEventListener("online", () => start());
 const last = listSessions()[0];
 if (last && Date.now() - last.updatedAt < RESTORE_WINDOW_MS) showSession(last);
 else renderRecent($("recent"), showSession);

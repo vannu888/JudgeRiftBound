@@ -5,6 +5,7 @@ import { MODES, KIND_LABEL, defaultNames, newGame, score, undo, nextRound, summa
 import { escapeHtml } from "./markdown.js";
 import { toast } from "./chat.js";
 import { load, store } from "./storage.js";
+import { icon } from "./icons.js";
 
 const GAME_KEY = "jrb.game.v1";
 const SHARE_KEY = "jrb.game.share";
@@ -90,9 +91,9 @@ function playerCard(p, i) {
       <div class="pips" aria-hidden="true">${pips}</div>
       ${matchPoint ? `<p class="mp">Punto vincente</p>` : ""}
       <div class="acts">
-        <button type="button" data-score="conquer" data-player="${i}" ${off}>⚔ Conquista</button>
-        <button type="button" data-score="hold" data-player="${i}" ${off}>🏰 Tenuta</button>
-        <button type="button" data-score="other" data-player="${i}" ${off} title="Punto da altre fonti, es. Burn Out dell'avversario o effetti di carte">＋1 Altro</button>
+        <button type="button" data-score="conquer" data-player="${i}" ${off}>${icon("flag")}Conquista</button>
+        <button type="button" data-score="hold" data-player="${i}" ${off}>${icon("castle")}Tenuta</button>
+        <button type="button" data-score="other" data-player="${i}" ${off} title="Punto da altre fonti, es. Burn Out dell'avversario o effetti di carte">+1 Altro</button>
         <button type="button" data-score="minus" data-player="${i}" ${ended || !p.points ? "disabled" : ""} aria-label="Togli un punto a ${name(i)}">−1</button>
       </div>
     </section>`;
@@ -101,14 +102,14 @@ function playerCard(p, i) {
 function banner() {
   const m = MODES[game.mode];
   if (game.matchWinner !== null) {
-    return `<div class="win-banner">🏆 <span><strong>${name(game.matchWinner)}</strong> ${verb(game.matchWinner, "vince", "vinci")} il match!</span>
+    return `<div class="win-banner">${icon("trophy", "win-icon")}<span><strong>${name(game.matchWinner)}</strong> ${verb(game.matchWinner, "vince", "vinci")} il match!</span>
       <button type="button" class="primary-btn small" data-reset>Nuova partita</button></div>`;
   }
   if (game.winner === null) return "";
   const next = m.bestOf > 1
     ? `<button type="button" class="primary-btn small" data-next>Partita successiva</button>`
     : `<button type="button" class="primary-btn small" data-reset>Nuova partita</button>`;
-  return `<div class="win-banner">🏆 <span><strong>${name(game.winner)}</strong> ${verb(game.winner, "vince", "vinci")} la partita (${ruleRef("467")})</span>${next}</div>`;
+  return `<div class="win-banner">${icon("trophy", "win-icon")}<span><strong>${name(game.winner)}</strong> ${verb(game.winner, "vince", "vinci")} la partita (${ruleRef("467")})</span>${next}</div>`;
 }
 
 function confirmBox() {
@@ -153,10 +154,14 @@ function gameView() {
     <div class="players n${game.players.length}">${game.players.map(playerCard).join("")}</div>
     ${pending !== null ? confirmBox() : ""}
     <div class="score-tools">
-      <button type="button" class="chip-btn" data-undo ${game.log.length ? "" : "disabled"}>↶ Annulla</button>
-      <label class="switch"><input type="checkbox" data-share ${share ? "checked" : ""}> Il judge conosce il punteggio</label>
-      <button type="button" class="chip-btn danger" data-reset>Nuova partita</button>
+      <button type="button" class="chip-btn" data-undo ${game.log.length ? "" : "disabled"}>${icon("undo")}Annulla</button>
+      <button type="button" class="chip-btn danger" data-reset>${icon("refresh")}Nuova partita</button>
     </div>
+    <label class="switch-row">
+      <span><strong>Il judge conosce il punteggio</strong>
+        <span class="muted small">Le domande includono lo stato della partita</span></span>
+      <input type="checkbox" class="switch" role="switch" data-share ${share ? "checked" : ""}>
+    </label>
     ${logView()}`;
 }
 

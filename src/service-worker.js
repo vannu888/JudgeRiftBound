@@ -54,13 +54,16 @@ async function cacheFirst(name, key, request) {
   return response;
 }
 
-/** Fresh from the network when possible, the last copy when offline. */
+/** Fresh from the network when possible; the last good copy when offline or the server is failing. */
 async function networkFirst(request) {
   const cache = await caches.open(DATA);
   try {
     const response = await fetch(request);
-    if (response.ok) await cache.put(request, response.clone());
-    return response;
+    if (response.ok) {
+      await cache.put(request, response.clone());
+      return response;
+    }
+    return (await cache.match(request)) ?? response;
   } catch {
     return (await cache.match(request)) ?? Response.error();
   }

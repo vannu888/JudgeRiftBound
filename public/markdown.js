@@ -68,17 +68,37 @@ function inline(s) {
     .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
 }
 
+/** A list item of the "Regole" section may open with a bare rule number: "466 — …". */
+function ruleItem(s) {
+  const m = /^(\d{3}(?:\.[0-9a-z]{1,2})*)(?=[\s:—–-])/.exec(s);
+  if (!m) return inline(s);
+  return `<a class="rule-ref" href="#regola-${m[1]}" data-rule="${m[1]}" title="Leggi la regola ${m[1]}">${m[1]}</a>${inline(s.slice(m[1].length))}`;
+}
+
+// The judge answers in three sections (see the system prompt); each gets its own
+// look: the verdict stands out, the rules applied become a compact list.
+const SECTIONS = [
+  [/^(verdetto|verdict|in breve|risposta)/i, "verdict"],
+  [/^(perch|why|spiegazione|motivazione|ragionamento)/i, "why"],
+  [/^(regol|rules?\b|riferimenti)/i, "rules"],
+];
+const sectionOf = (title) => SECTIONS.find(([re]) => re.test(title.trim()))?.[1] ?? "other";
+
 /** Card rules text (plain text with symbols and line breaks). */
 export function renderCardText(text) {
   return withSymbols(escapeHtml(text ?? "")).replace(/\n+/g, "<br>");
 }
 
-/** Minimal Markdown: headings, lists, blockquotes, rules, bold/italic/code. */
+/**
+ * Minimal Markdown: headings, lists, blockquotes, rules, bold/italic/code.
+ * Every heading opens a <section class="sec sec-…"> (verdict, why, rules, other).
+ */
 export function renderMarkdown(text) {
   let html = "";
   let list = null; // "ul" | "ol"
   let para = [];
   let quote = [];
+  let section = null;
 
   const flushPara = () => {
     if (para.length) html += `<p>${para.map(inline).join("<br>")}</p>`;
@@ -98,14 +118,24 @@ export function renderMarkdown(text) {
     closeList();
   };
 
+  const heading = (title) => {
+    flushAll();
+    if (section) html += "</section>";
+    section = sectionOf(title.replace(/[*:]/g, ""));
+    html += `<section class="sec sec-${section}"><h3>${inline(title)}</h3>`;
+  };
+
   for (const line of String(text).replace(/\r/g, "").split("\n")) {
     const t = line.trim();
     let m;
     if (!t) {
       flushAll();
     } else if ((m = t.match(/^#{1,4}\s+(.*)$/))) {
-      flushAll();
-      html += `<h3>${inline(m[1])}</h3>`;
+      heading(m[1]);
+    } else if ((m = t.match(/^\*\*([^*]{2,30}?):?\*\*:?\s*(.*)$/)) && sectionOf(m[1]) !== "other") {
+      // "**Verdetto:** Sì, puoi…" written as a bold lead-in instead of a heading.
+      heading(m[1]);
+      if (m[2]) para.push(m[2]);
     } else if (/^(-{3,}|\*{3,})$/.test(t)) {
       flushAll();
       html += "<hr>";
@@ -122,7 +152,7 @@ export function renderMarkdown(text) {
         list = kind;
         html += `<${kind}>`;
       }
-      html += `<li>${inline(m[1])}</li>`;
+      html += `<li>${section === "rules" ? ruleItem(m[1]) : inline(m[1])}</li>`;
     } else {
       flushQuote();
       closeList();
@@ -130,5 +160,6 @@ export function renderMarkdown(text) {
     }
   }
   flushAll();
+  if (section) html += "</section>";
   return html;
 }
