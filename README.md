@@ -91,7 +91,9 @@ keyword. Più contesto dai, più preciso è il ruling. Se manca qualcosa, il jud
 > Esempio: *"L'avversario gioca Falling Comet sulla mia unità: posso rispondere con una Reaction?
 > In che ordine si risolve la chain?"*
 
-**Scrivi i nomi delle carte in inglese, come sono stampati** (es. `Vi, Destructive`, `Falling Comet`).
+**Scrivi i nomi delle carte in inglese, come sono stampati** (es. `Vi, Destructive`, `Falling Comet`):
+mentre scrivi, sopra il campo compaiono le **carte suggerite** e a ogni parola in più la scelta si
+restringe; toccane una (o premi Tab) per inserire il nome completo.
 Basta anche il nome del campione (`il mio Jinx…`, `l'Ahri dell'avversario`): il judge riceve tutte le sue
 versioni. Apostrofi e punteggiatura sono facoltativi (`Kaisa`, `BF Sword`, `Megamech`). Sopra la
 risposta vedi le **carte considerate**: toccane una per leggerne il testo. Se non ricordi il nome
@@ -126,9 +128,18 @@ può rispondere a domande come *"se conquisto adesso, vinco?"*.
 
 ## Database delle carte
 
-Il file `data/cards.json` contiene i dati **funzionali** di tutte le carte (nome, tipo, dominio, costo in Energy/Power, Might, tag, testo delle regole, errata e ban),
-presi da [piltoverarchive.com/cards](https://piltoverarchive.com/cards). Niente artwork, flavor text o
-prezzi.
+Il file `data/cards.json` contiene i dati **funzionali** di tutte le carte (nome, tipo, dominio, costo
+in Energy/Power, Might, tag, testo delle regole, errata, ban, set e rarità). Niente artwork, flavor text
+o prezzi. Lo script unisce tre fonti, carta per carta:
+
+- [piltoverarchive.com](https://piltoverarchive.com/cards) — la base: include le **errata** e le
+  anteprime dei set in uscita;
+- la [galleria ufficiale di Riot](https://playriftbound.com/en-us/card-gallery/) — corregge i refusi
+  del testo (non tocca le carte con errata, perché la galleria mostra il testo stampato);
+- l'API di [Riftcodex](https://riftcodex.com/) — nuove carte e conferma dei nomi.
+
+Quando le fonti scrivono un nome in modo diverso vince la maggioranza, e le altre grafie restano come
+alias (il judge riconosce sia `Stargazer` sia `Stagazer`).
 
 Quando esce un nuovo set, aggiornalo con:
 
@@ -136,8 +147,9 @@ Quando esce un nuovo set, aggiornalo con:
 npm run cards
 ```
 
-Lo script scorre educatamente le pagine del sito (una richiesta alla volta) e riscrive
-`data/cards.json`. Il server riconosce le carte nominate nella conversazione (nomi completi e nomi dei
+Lo script fa una richiesta alla volta (per non pesare sui siti), continua anche se una fonte non
+risponde e riscrive `data/cards.json`: rilancialo durante le anteprime di un nuovo set (es. Radiance,
+in uscita il 23 ottobre 2026) per avere subito le nuove carte. Il server riconosce le carte nominate nella conversazione (nomi completi e nomi dei
 campioni, con attenzione a falsi positivi come la parola italiana "vi") e ne allega il testo alla
 domanda, fino a 16 carte, così il prompt resta leggero.
 

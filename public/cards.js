@@ -16,6 +16,8 @@ const TYPE_LABEL = {
   "Unit Gear": "Unità / Gear",
 };
 
+const RARITY = { Common: "Comune", Uncommon: "Non comune", Rare: "Rara", Epic: "Epica" };
+
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString("it-IT") : "");
 
 /** CSS accent for a card: its domain color, or a gradient for dual-domain cards. */
@@ -54,7 +56,7 @@ export function cardTileHtml(c, { insert = true } = {}) {
       ${c.text ? `<div class="ct-text">${renderCardText(c.text)}</div>` : ""}
       ${c.effect ? `<div class="ct-text ct-effect"><span class="ct-label">Quando è attaccato</span>${renderCardText(c.effect)}</div>` : ""}
       <footer>
-        <span class="ct-codes">${escapeHtml((c.codes ?? []).slice(0, 3).join(" · "))}</span>
+        <span class="ct-codes">${escapeHtml([c.set, RARITY[c.rarity] ?? c.rarity, (c.codes ?? [])[0]].filter(Boolean).join(" · "))}</span>
         ${insert ? `<button type="button" class="chip-btn" data-insert="${escapeHtml(c.name)}">${icon("plus")}Usa nella domanda</button>` : ""}
       </footer>
     </article>`;

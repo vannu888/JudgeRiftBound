@@ -50,7 +50,7 @@ const SEARCH = new Map(
     {
       name: normalize(c.name),
       hay: normalize(
-        [c.name, c.type, c.supertype, ...(c.domains ?? []), ...(c.tags ?? []), c.text, c.effect].join(" "),
+        [c.name, ...(c.aliases ?? []), c.type, c.supertype, ...(c.domains ?? []), ...(c.tags ?? []), c.set, c.text, c.effect].join(" "),
       ),
     },
   ]),
@@ -63,12 +63,18 @@ function tokenize(text) {
   return Array.from(String(text).matchAll(/[\p{L}\p{M}\p{N}]+/gu), (m) => ({ word: fold(m[0]), raw: m[0], at: m.index }));
 }
 
-// Match index: every full card name, plus a champion alias ("Jinx" -> every
-// "Jinx, …" card) so "il mio Jinx" also works. Each name is indexed split at its
-// punctuation ("kai sa", "mega mech") and with it removed ("kaisa", "megamech"),
-// keyed by first word with the longest names first.
+// Match index: every full card name and its other spellings (see `aliases` in
+// the data), a legend's title on its own ("Heart of the Tempest"), plus a
+// champion alias ("Jinx" -> every "Jinx, …" card) so "il mio Jinx" also works.
+// Each name is indexed split at its punctuation ("kai sa", "mega mech") and with
+// it removed ("kaisa", "megamech"), keyed by first word with the longest names first.
 const INDEX = (() => {
-  const entries = CARDS.map((c) => ({ raw: c.name, ids: [c.id], alias: false }));
+  const entries = [];
+  for (const c of CARDS) {
+    for (const raw of [c.name, ...(c.aliases ?? [])]) entries.push({ raw, ids: [c.id], alias: false });
+    const title = c.type === "Legend" ? c.name.split(", ")[1] : null;
+    if (title && title.includes(" ")) entries.push({ raw: title, ids: [c.id], alias: false });
+  }
   const champions = new Map();
   for (const c of CARDS) {
     const comma = c.name.indexOf(", ");
@@ -151,6 +157,16 @@ export function findCardsInConversation(messages, limit = MAX_CARDS) {
   }
   return found;
 }
+
+/**
+ * Every name the question box can suggest, as compact rows:
+ * [name, type, first domain, [other spellings and a legend's title]].
+ */
+export const CARD_NAMES = CARDS.map((c) => {
+  const title = c.type === "Legend" ? c.name.split(", ")[1] : null;
+  const other = [...(c.aliases ?? []), ...(title && title.includes(" ") ? [title] : [])];
+  return other.length ? [c.name, c.type ?? "", c.domains?.[0] ?? "", other] : [c.name, c.type ?? "", c.domains?.[0] ?? ""];
+});
 
 /** Free-text search for the card browser, with optional domain/type filters. */
 export function searchCards({ q = "", domain = "", type = "", limit = 60 } = {}) {

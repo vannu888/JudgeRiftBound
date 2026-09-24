@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import express from "express";
 import compression from "compression";
 import { MODELS, HAS_API_KEY } from "./src/judge.js";
-import { CARDS, DOMAINS, CARDS_UPDATED_AT, searchCards } from "./src/cards.js";
+import { CARDS, CARD_NAMES, DOMAINS, CARDS_UPDATED_AT, searchCards } from "./src/cards.js";
 import { RULE_COUNT, getRule, searchRules } from "./src/rules.js";
 import { createAskHandler } from "./src/ask.js";
 import { createAccessControl, rateLimit } from "./src/security.js";
@@ -82,6 +82,11 @@ export function createApp({
   app.get("/api/cards", (req, res) => {
     const { q, domain, type, limit } = req.query;
     res.json(searchCards({ q: str(q), domain: str(domain), type: str(type), limit: clamp(limit, 60, 200) }));
+  });
+
+  // All card names at once: the question box filters them on the phone, even offline.
+  app.get("/api/cards/names", (_req, res) => {
+    res.json({ updatedAt: CARDS_UPDATED_AT, names: CARD_NAMES });
   });
 
   app.get("/api/rules", (req, res) => {

@@ -103,3 +103,11 @@ test("the cards block is clearly delimited", () => {
   assert.match(block, /• Falling Comet/);
   assert.match(block, /\[FINE CARTE\]$/);
 });
+
+test("other spellings and legend titles are recognised", async () => {
+  const { matchText, CARDS } = await import("../src/cards.js");
+  const nameOf = (text) => matchText(text).map((id) => CARDS.find((c) => c.id === id).name);
+  assert.deepEqual(nameOf("Il mio Stagazer attacca"), ["Stargazer"]);
+  assert.deepEqual(nameOf("gioco Sky Crusier"), ["Sky Cruiser"]);
+  assert.deepEqual(nameOf("la leggenda Heart of the Tempest"), ["Kennen, Heart of the Tempest"]);
+});

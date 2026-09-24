@@ -45,6 +45,31 @@ body {
   margin: 0;
   height: 100%;
 }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation; /* no double-tap zoom when tapping +1 twice; pinch zoom still works */
+}
+button,
+.rule-ref {
+  -webkit-touch-callout: none; /* no iOS link preview on a long press */
+}
+button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Touch feedback (hover styles only apply with a mouse). */
+.ghost-btn:active,
+.chip-btn:active:not(:disabled),
+.icon-btn:active,
+.example:active,
+.card-chip:active,
+.recent-item:active,
+.history-item:active,
+.rule-hit:active,
+.dom-pill:active {
+  transform: scale(0.97);
+}
 body {
   background: var(--bg);
   color: var(--text);
@@ -181,11 +206,13 @@ textarea {
   cursor: pointer;
   transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.ghost-btn:hover {
-  color: #1c160a;
-  border-color: transparent;
-  background: linear-gradient(180deg, var(--gold-soft), var(--gold));
-  box-shadow: 0 4px 18px rgba(217, 180, 95, 0.3);
+@media (hover: hover) {
+  .ghost-btn:hover {
+    color: #1c160a;
+    border-color: transparent;
+    background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+    box-shadow: 0 4px 18px rgba(217, 180, 95, 0.3);
+  }
 }
 .icon-btn {
   width: 36px;
@@ -203,9 +230,11 @@ textarea {
   width: 18px;
   height: 18px;
 }
-.icon-btn:hover {
-  color: var(--text);
-  border-color: var(--gold);
+@media (hover: hover) {
+  .icon-btn:hover {
+    color: var(--text);
+    border-color: var(--gold);
+  }
 }
 .chip-btn {
   display: inline-flex;
@@ -226,9 +255,11 @@ textarea {
   width: 15px;
   height: 15px;
 }
-.chip-btn:hover {
-  color: var(--gold-soft);
-  border-color: var(--gold);
+@media (hover: hover) {
+  .chip-btn:hover {
+    color: var(--gold-soft);
+    border-color: var(--gold);
+  }
 }
 
 /* ---------- API warning ---------- */
@@ -359,11 +390,13 @@ textarea {
   cursor: pointer;
   transition: color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
 }
-.example:hover {
-  color: var(--text);
-  border-color: var(--teal);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(53, 199, 186, 0.14);
+@media (hover: hover) {
+  .example:hover {
+    color: var(--text);
+    border-color: var(--teal);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(53, 199, 186, 0.14);
+  }
 }
 .ex-icon {
   flex: none;
@@ -480,9 +513,11 @@ textarea {
   background: var(--accent);
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.15);
 }
-.card-chip:hover {
-  border-color: var(--gold);
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .card-chip:hover {
+    border-color: var(--gold);
+    transform: translateY(-1px);
+  }
 }
 
 /* Reasoning */
@@ -755,9 +790,11 @@ textarea {
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
-.kw:hover {
-  background: rgba(53, 199, 186, 0.22);
-  border-color: var(--teal);
+@media (hover: hover) {
+  .kw:hover {
+    background: rgba(53, 199, 186, 0.22);
+    border-color: var(--teal);
+  }
 }
 /* Rule citations in answers open the official text */
 .rule-ref {
@@ -777,8 +814,10 @@ textarea {
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.rule-ref:hover {
-  background: rgba(217, 180, 95, 0.26);
+@media (hover: hover) {
+  .rule-ref:hover {
+    background: rgba(217, 180, 95, 0.26);
+  }
 }
 
 /* ---------- Composer ---------- */
@@ -788,6 +827,71 @@ textarea {
   padding: 10px 0 16px;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
   background: linear-gradient(0deg, var(--bg) calc(100% - 6px), rgba(10, 14, 21, 0));
+}
+/* Card names suggested while typing, like the keyboard's own suggestions */
+.suggest {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 24px 9px 2px;
+  /* The row fades out on the right: there is more to scroll. */
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  animation: fade 0.15s ease;
+}
+.suggest::-webkit-scrollbar {
+  display: none;
+}
+.sug {
+  --dc: #8a9bb0;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 7px 13px 7px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-solid);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.sug::before {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--dc);
+}
+.sug:first-child {
+  border-color: rgba(217, 180, 95, 0.6);
+}
+.sug-type {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.sug:active {
+  transform: scale(0.97);
+}
+@media (hover: hover) {
+  .sug:hover {
+    border-color: var(--gold);
+  }
+  /* With a keyboard, Tab takes the first suggestion. */
+  .sug:first-child::after {
+    content: "Tab";
+    padding: 1px 5px;
+    border-radius: 5px;
+    border: 1px solid var(--border-strong);
+    font-size: 10px;
+    color: var(--text-faint);
+  }
 }
 #askForm {
   display: flex;
@@ -835,9 +939,11 @@ textarea {
   transition: filter 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
   box-shadow: 0 4px 16px rgba(217, 180, 95, 0.25);
 }
-#send:hover {
-  filter: brightness(1.07);
-  box-shadow: 0 6px 22px rgba(217, 180, 95, 0.4);
+@media (hover: hover) {
+  #send:hover {
+    filter: brightness(1.07);
+    box-shadow: 0 6px 22px rgba(217, 180, 95, 0.4);
+  }
 }
 #send:active {
   transform: translateY(1px);
@@ -861,6 +967,7 @@ textarea {
 /* ---------- Dialogs ---------- */
 dialog {
   padding: 0;
+  overscroll-behavior: contain;
   border: 1px solid var(--border-strong);
   background: var(--bg-2);
   color: var(--text);
@@ -894,6 +1001,7 @@ dialog[open] {
   min-height: 100%;
   padding-top: max(18px, env(safe-area-inset-top));
   padding-bottom: max(18px, env(safe-area-inset-bottom));
+  padding-right: max(18px, env(safe-area-inset-right)); /* iPhone in landscape: clear of the notch */
 }
 .drawer-head {
   display: flex;
@@ -984,8 +1092,10 @@ select.field {
   cursor: pointer;
   transition: all 0.15s ease;
 }
-.dom-pill:hover {
-  color: var(--text);
+@media (hover: hover) {
+  .dom-pill:hover {
+    color: var(--text);
+  }
 }
 .dom-pill[aria-pressed="true"] {
   background: var(--dc);
@@ -1165,8 +1275,10 @@ select.field {
   cursor: pointer;
   transition: filter 0.15s ease, transform 0.05s ease;
 }
-.primary-btn:hover {
-  filter: brightness(1.07);
+@media (hover: hover) {
+  .primary-btn:hover {
+    filter: brightness(1.07);
+  }
 }
 .primary-btn:active {
   transform: translateY(1px);
@@ -1180,9 +1292,11 @@ select.field {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.chip-btn.danger:hover {
-  color: var(--danger);
-  border-color: var(--danger);
+@media (hover: hover) {
+  .chip-btn.danger:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
 }
 .icon-btn.small {
   width: 30px;
@@ -1304,9 +1418,11 @@ select.field {
   cursor: pointer;
   transition: all 0.15s ease;
 }
-.recent-item:hover {
-  border-color: var(--gold);
-  color: var(--text);
+@media (hover: hover) {
+  .recent-item:hover {
+    border-color: var(--gold);
+    color: var(--text);
+  }
 }
 .recent-item .ex-icon {
   background: rgba(217, 180, 95, 0.12);
@@ -1352,8 +1468,10 @@ select.field {
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
-.history-item:hover {
-  border-color: var(--gold);
+@media (hover: hover) {
+  .history-item:hover {
+    border-color: var(--gold);
+  }
 }
 .clear-all {
   margin-top: 16px;
@@ -1407,9 +1525,11 @@ select.field {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.crumb:hover {
-  color: var(--text);
-  border-left-color: var(--gold);
+@media (hover: hover) {
+  .crumb:hover {
+    color: var(--text);
+    border-left-color: var(--gold);
+  }
 }
 .crumb b,
 .rule-num {
@@ -1507,8 +1627,10 @@ select.field {
   line-height: 1.5;
   cursor: pointer;
 }
-.rule-hit:hover {
-  border-color: var(--gold);
+@media (hover: hover) {
+  .rule-hit:hover {
+    border-color: var(--gold);
+  }
 }
 .rule-hit .rule-num {
   font-size: 12.5px;
@@ -1750,8 +1872,10 @@ mark {
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease, transform 0.05s ease;
 }
-.acts button:hover:not(:disabled) {
-  border-color: var(--hue);
+@media (hover: hover) {
+  .acts button:hover:not(:disabled) {
+    border-color: var(--hue);
+  }
 }
 .acts .i {
   width: 17px;
@@ -2050,5 +2174,26 @@ mark {
   }
   .toast {
     bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+  /* iPhone: Safari zooms into any field with text under 16px. */
+  #input,
+  .field,
+  select.field {
+    font-size: 16px;
+  }
+  /* Comfortable tap targets */
+  .chip-btn {
+    min-height: 36px;
+    padding: 6px 13px;
+    font-size: 13px;
+  }
+  .card-chip {
+    padding: 7px 13px 7px 10px;
+    font-size: 13.5px;
+  }
+  .kw,
+  .rule-ref {
+    padding-top: 0.08em;
+    padding-bottom: 0.08em;
   }
 }

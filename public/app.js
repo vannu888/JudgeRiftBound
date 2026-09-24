@@ -6,6 +6,7 @@ import { addUserMessage, createJudgeMessage, finishJudgeMessage, addNote, scroll
 import { newSession, saveSession, listSessions, initHistory, renderRecent } from "./history.js";
 import { initScoreboard, gameContext } from "./score.js";
 import { icon } from "./icons.js";
+import { initSuggestions } from "./suggest.js";
 
 const $ = (id) => document.getElementById(id);
 const chatEl = $("chat");
@@ -143,6 +144,8 @@ function autoGrow() {
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 180)}px`;
 }
 inputEl.addEventListener("input", autoGrow);
+// Card names are suggested while typing (see suggest.js).
+const suggestions = initSuggestions({ input: inputEl, bar: $("suggest"), onChange: autoGrow });
 inputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
@@ -175,6 +178,7 @@ formEl.addEventListener("submit", (e) => {
   }
   const text = inputEl.value.trim();
   if (!text) return;
+  suggestions.hide();
   welcomeEl.hidden = true;
   addUserMessage(text);
   session.messages.push({ role: "user", content: text });
