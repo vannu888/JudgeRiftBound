@@ -2091,12 +2091,23 @@ mark {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
-  gap: 2px;
   min-height: 0;
+  background: #06090d center / cover no-repeat;
 }
-/* The opponent reads the top half upside down from their side of the table. */
+/* Each side of the table has its own artwork, framed on its subject. */
+.side-bottom {
+  background-image: url("img/table-bottom.webp");
+  background-position: 50% 30%;
+}
+/* The opponent reads the top half upside down from their side of the table
+   (the artwork turns with it, so it is upright for them too). */
 .side-top {
   transform: rotate(180deg);
+  background-image: url("img/table-top.webp");
+  background-position: 45% 45%;
+}
+.side .tp + .tp {
+  border-left: 2px solid #06090d;
 }
 /* Clear of the notch and the home indicator (the top half is rotated: its bottom is the screen's top). */
 .side-top .tp {
@@ -2116,15 +2127,21 @@ mark {
   min-width: 0;
   min-height: 0;
   padding: 14px 14px;
-  background: radial-gradient(120% 80% at 50% 0%, var(--tint), color-mix(in srgb, var(--tint) 55%, var(--bg)));
-  background-color: var(--tint);
+  /* The player's colour over the artwork, darker where the buttons are. */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tint) 45%, transparent),
+    color-mix(in srgb, var(--bg) 80%, transparent)
+  );
   border-top: 3px solid var(--hue);
   text-align: center;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8);
   touch-action: manipulation;
 }
 .tp-name {
   margin: 0;
   max-width: 100%;
+  padding: 2px 8px; /* room for the text shadow, which overflow would cut into a box */
   font-size: 17px;
   font-weight: 700;
   color: var(--hue);
@@ -2200,8 +2217,8 @@ mark {
   min-height: 54px;
   padding: 8px 6px;
   border-radius: 15px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(6, 9, 13, 0.55);
   color: var(--text);
   font-size: 15px;
   font-weight: 700;
@@ -2215,7 +2232,7 @@ mark {
 }
 .tp-acts button:active:not(:disabled) {
   transform: scale(0.96);
-  background: color-mix(in srgb, var(--hue) 35%, rgba(0, 0, 0, 0.3));
+  background: color-mix(in srgb, var(--hue) 35%, rgba(6, 9, 13, 0.55));
 }
 .tp-acts button:disabled {
   opacity: 0.35;

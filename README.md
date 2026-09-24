@@ -126,6 +126,8 @@ Tocca **🏆 Punti** in alto:
 si divide a metà e la metà in alto è capovolta verso l'avversario: ognuno ha davanti il proprio
 punteggio e i propri pulsanti (con 3-4 giocatori, due per lato). Al centro ci sono Annulla, i punti per
 vincere ed Esci; lo schermo resta acceso finché la modalità è aperta (dove il telefono lo consente).
+Ogni metà ha la sua illustrazione (`table-bottom.webp` dal tuo lato, `table-top.webp` da quello
+dell'avversario): per cambiarle basta sostituire i due file in `public/img/`.
 
 Il punteggio resta salvato sul telefono anche se chiudi l'app e compare nel pulsante in alto. Con
 **"Il judge conosce il punteggio"** attivo, ogni domanda include lo stato della partita, così il judge
@@ -245,8 +247,8 @@ delle risposte, limiti, timeout, compressione).
 
 ## Note
 
-- Lo sfondo è un'illustrazione di Riot Games (in `public/img/`: intera per il desktop, ritagliata sul
-  soggetto per lo smartphone). Judge Rift Bound è un progetto di fan gratuito e non ufficiale: non è
+- Lo sfondo e le due metà della modalità tavolo sono illustrazioni di Riot Games (in `public/img/`;
+  lo sfondo è intero per il desktop e ritagliato sul soggetto per lo smartphone). Judge Rift Bound è un progetto di fan gratuito e non ufficiale: non è
   approvato da Riot Games e non riflette le opinioni di Riot Games o di chiunque sia coinvolto
   ufficialmente nella produzione o gestione delle sue proprietà. Riftbound, League of Legends e tutte
   le proprietà associate sono marchi o marchi registrati di Riot Games, Inc.
