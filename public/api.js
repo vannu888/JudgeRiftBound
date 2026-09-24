@@ -20,6 +20,3 @@ export async function request(path, init) {
 }
 
 export const getJSON = async (path) => (await request(path)).json();
-
-export const postJSON = (path, body, init = {}) =>
-  request(path, { ...init, method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });

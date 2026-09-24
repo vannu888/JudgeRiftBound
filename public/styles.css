@@ -71,6 +71,7 @@ button {
   transform: scale(0.97);
 }
 body {
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
@@ -145,9 +146,6 @@ textarea {
 }
 /* The artwork is the hero of the welcome screen: its subject shows above the title
    (the logo is already in the header). */
-.welcome .medallion {
-  display: none;
-}
 @media (max-width: 600px) {
   /* The face is just below the header: the title starts under it. */
   .chat > .welcome {
@@ -194,7 +192,41 @@ textarea {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(180deg, var(--bg) calc(100% - 6px), rgba(10, 14, 21, 0));
+}
+/* Header and composer fade into the artwork across the whole width: dark where
+   their controls are, transparent towards the conversation, no hard edges. */
+.topbar::before,
+.composer::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.topbar::before {
+  top: 0;
+  bottom: -40px;
+  /* Solid behind the title and buttons (scrolled text must not show through), then a soft fade. */
+  background: linear-gradient(
+    180deg,
+    rgb(10, 14, 21) 0,
+    rgb(10, 14, 21) calc(100% - 50px),
+    rgba(10, 14, 21, 0.6) calc(100% - 26px),
+    rgba(10, 14, 21, 0) 100%
+  );
+}
+.composer::before {
+  top: -44px;
+  bottom: 0;
+  background: linear-gradient(
+    0deg,
+    rgb(10, 14, 21) 0,
+    rgb(10, 14, 21) calc(100% - 54px),
+    rgba(10, 14, 21, 0.6) calc(100% - 28px),
+    rgba(10, 14, 21, 0) 100%
+  );
 }
 .brand {
   display: flex;
@@ -341,34 +373,6 @@ textarea {
   text-align: center;
   padding: 12px 4px;
   animation: fade 0.5s ease;
-}
-.medallion {
-  width: 92px;
-  height: 92px;
-  margin: 0 auto 20px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  position: relative;
-  background: radial-gradient(circle at 50% 35%, #1e2937, #10161f);
-  box-shadow: inset 0 0 0 1px rgba(217, 180, 95, 0.35), 0 10px 40px rgba(217, 180, 95, 0.18);
-}
-.medallion::before {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  padding: 3px;
-  background: conic-gradient(from 0deg, var(--gold), var(--teal), var(--gold-soft), var(--gold));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0.85;
-}
-.medallion img {
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
 }
 .welcome-title {
   font-family: var(--font-display);
@@ -870,7 +874,7 @@ textarea {
   bottom: 0;
   padding: 10px 0 16px;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
-  background: linear-gradient(0deg, var(--bg) calc(100% - 6px), rgba(10, 14, 21, 0));
+  z-index: 5;
 }
 /* Card names suggested while typing, like the keyboard's own suggestions */
 .suggest {
