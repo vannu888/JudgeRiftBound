@@ -245,6 +245,12 @@ delle risposte, limiti, timeout, compressione).
 
 ## Note
 
+- Lo sfondo è un'illustrazione di Riot Games (in `public/img/`: intera per il desktop, ritagliata sul
+  soggetto per lo smartphone). Judge Rift Bound è un progetto di fan gratuito e non ufficiale: non è
+  approvato da Riot Games e non riflette le opinioni di Riot Games o di chiunque sia coinvolto
+  ufficialmente nella produzione o gestione delle sue proprietà. Riftbound, League of Legends e tutte
+  le proprietà associate sono marchi o marchi registrati di Riot Games, Inc.
+
 - Il regolamento incluso è la versione **Core Rules del 2026-03-30**. Per aggiornarlo, sostituisci
   `data/riftbound-core-rules.txt` con il nuovo testo.
 - Questo strumento si basa sulle Core Rules e **non sostituisce** un judge certificato: in un torneo
