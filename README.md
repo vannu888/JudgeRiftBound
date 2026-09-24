@@ -122,6 +122,11 @@ Tocca **🏆 Punti** in alto:
 4. La vittoria viene annunciata secondo la regola 467; nel meglio di 3 si passa alla partita
    successiva tenendo il conto delle vittorie.
 
+**Modalità tavolo**: tocca *Modalità tavolo* e appoggia il telefono al centro del tavolo. Lo schermo
+si divide a metà e la metà in alto è capovolta verso l'avversario: ognuno ha davanti il proprio
+punteggio e i propri pulsanti (con 3-4 giocatori, due per lato). Al centro ci sono Annulla, i punti per
+vincere ed Esci; lo schermo resta acceso finché la modalità è aperta (dove il telefono lo consente).
+
 Il punteggio resta salvato sul telefono anche se chiudi l'app e compare nel pulsante in alto. Con
 **"Il judge conosce il punteggio"** attivo, ogni domanda include lo stato della partita, così il judge
 può rispondere a domande come *"se conquisto adesso, vinco?"*.

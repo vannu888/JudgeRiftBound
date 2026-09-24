@@ -1988,6 +1988,291 @@ mark {
   gap: 3px;
 }
 
+/* Entry to table mode, in the scoreboard */
+.table-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 11px 14px;
+  border-radius: 13px;
+  border: 1px solid rgba(53, 199, 186, 0.4);
+  background: linear-gradient(135deg, rgba(53, 199, 186, 0.14), rgba(53, 199, 186, 0.04));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.table-btn > .i {
+  width: 26px;
+  height: 26px;
+  color: var(--teal-soft);
+}
+.table-btn > span {
+  display: grid;
+  gap: 1px;
+}
+
+/* ---------- Table mode: the phone between the players ---------- */
+.table-dialog {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  overscroll-behavior: none;
+}
+.table-dialog[open] {
+  animation: fade 0.2s ease;
+}
+.table-dialog::backdrop {
+  background: var(--bg);
+}
+#tableBody {
+  height: 100%;
+}
+.table {
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+.side {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 2px;
+  min-height: 0;
+}
+/* The opponent reads the top half upside down from their side of the table. */
+.side-top {
+  transform: rotate(180deg);
+}
+/* Clear of the notch and the home indicator (the top half is rotated: its bottom is the screen's top). */
+.side-top .tp {
+  padding-bottom: max(14px, env(safe-area-inset-top));
+}
+.side-bottom .tp {
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+}
+.tp {
+  --hue: var(--gold);
+  --tint: #1a2432;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px 14px;
+  background: radial-gradient(120% 80% at 50% 0%, var(--tint), color-mix(in srgb, var(--tint) 55%, var(--bg)));
+  background-color: var(--tint);
+  border-top: 3px solid var(--hue);
+  text-align: center;
+  touch-action: manipulation;
+}
+.tp-name {
+  margin: 0;
+  max-width: 100%;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--hue);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tp-name .wins {
+  margin-left: 8px;
+}
+.tp-score {
+  display: flex;
+  align-items: baseline;
+  line-height: 0.95;
+}
+.tp-big {
+  font-size: clamp(72px, 19vh, 200px);
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -2px;
+}
+.tp-of {
+  margin-left: 6px;
+  font-size: clamp(18px, 3.2vh, 28px);
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.table.n3 .tp-big,
+.table.n4 .tp-big {
+  font-size: clamp(56px, 13vh, 130px);
+}
+.tp-mp,
+.tp-win,
+.tp-lose {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--hue);
+}
+.tp-win {
+  font-size: 17px;
+  color: var(--gold-soft);
+}
+.tp-lose {
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.tp.match-point .tp-big {
+  color: var(--hue);
+  text-shadow: 0 0 28px color-mix(in srgb, var(--hue) 50%, transparent);
+}
+.tp.winner {
+  box-shadow: inset 0 0 0 3px var(--gold), inset 0 0 60px rgba(217, 180, 95, 0.25);
+}
+.tp-acts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: min(100%, 380px);
+}
+.tp-acts button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 54px;
+  padding: 8px 6px;
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.05s ease;
+}
+.tp-acts button .i {
+  width: 19px;
+  height: 19px;
+  color: var(--hue);
+}
+.tp-acts button:active:not(:disabled) {
+  transform: scale(0.96);
+  background: color-mix(in srgb, var(--hue) 35%, rgba(0, 0, 0, 0.3));
+}
+.tp-acts button:disabled {
+  opacity: 0.35;
+}
+/* Two players per side: narrower halves, the icon goes above the label. */
+.table.n3 .tp-acts,
+.table.n4 .tp-acts {
+  gap: 6px;
+}
+.table.n3 .tp-acts button,
+.table.n4 .tp-acts button {
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  min-height: 50px;
+  padding: 6px 2px;
+  font-size: 12px;
+}
+.table.n3 .tp,
+.table.n4 .tp {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.tp-confirm {
+  width: min(100%, 380px);
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--gold);
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+}
+.tp-confirm p {
+  margin: 0 0 10px;
+}
+.tp-confirm-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.tp-confirm .primary-btn {
+  min-height: 44px;
+}
+/* The strip between the halves: icons only, readable from both sides. */
+.table-mid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 6px 12px;
+  background: #06090d;
+  border-block: 1px solid var(--border-strong);
+}
+.tm-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.tm-btn .i {
+  width: 20px;
+  height: 20px;
+}
+.tm-btn:disabled {
+  opacity: 0.35;
+}
+.tm-btn.go {
+  color: #1c160a;
+  border-color: transparent;
+  background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+}
+.tm-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--gold-soft);
+}
+/* A phone turned sideways: the halves are short, so score and buttons sit side by side. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .tp {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+  .tp-name {
+    width: 100%;
+  }
+  .tp-big {
+    font-size: clamp(56px, 22vh, 120px);
+  }
+  .tp-acts {
+    width: min(55%, 340px);
+  }
+  .tp-acts button {
+    min-height: 44px;
+  }
+}
+
 /* A new version of the app is ready */
 .update-bar {
   display: inline-flex;
