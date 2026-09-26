@@ -1,11 +1,13 @@
 // Segnapunti: interfaccia. Le regole (modalità, punto vincente, vittoria)
 // sono in score-model.js; la partita è salvata su questo dispositivo.
 
-import { MODES, KIND_LABEL, defaultNames, newGame, score, undo, nextRound, summary, toContext, restoreGame, atMatchPoint } from "./score-model.js";
+import { MODES, KIND_LABEL, defaultNames, newGame, score, undo, nextRound, summary, toContext, restoreGame, atMatchPoint, setEnergy } from "./score-model.js";
 import { escapeHtml } from "./markdown.js";
 import { toast } from "./chat.js";
 import { load, store } from "./storage.js";
 import { icon } from "./icons.js";
+import { timerView, tableClock, timerAction, initTimer } from "./timer.js";
+import { legendSelect, setLastLegend, saveGame, openDiary, diarySummary, loadLegends, initDiary } from "./diary.js";
 
 const GAME_KEY = "jrb.game.v1";
 const SHARE_KEY = "jrb.game.share";
@@ -65,6 +67,7 @@ function setupView() {
     )
     .join("");
   return `
+    ${timerView()}
     <form class="score-setup" id="scoreSetup">
       <p class="setup-label">Modalità</p>
       <div class="mode-grid" role="radiogroup" aria-label="Modalità">${modes}</div>
@@ -80,7 +83,44 @@ function setupView() {
       </div>
       <button class="primary-btn" type="submit">Inizia la partita</button>
       <p class="muted small">Si segna con una Conquista o una Tenuta, al massimo una volta per battlefield per turno (${ruleRef("465")}).</p>
-    </form>`;
+    </form>
+    ${diaryButton()}`;
+}
+
+/** Unspent Energy of player `i`: the Rune Pool empties at the end of Draw and of the turn (166). */
+function energyRow(p, i, cls) {
+  return `
+    <div class="${cls}" title="Energy non spesa: il Rune Pool si svuota a fine Draw e a fine turno (166)">
+      <span class="en-label">${icon("bolt")}<span class="en-text">Energy</span></span>
+      <button type="button" data-energy="-1" data-player="${i}" ${p.energy ? "" : "disabled"} aria-label="Una Energy in meno a ${name(i)}">−</button>
+      <output aria-label="Energy non spesa di ${name(i)}">${p.energy}</output>
+      <button type="button" data-energy="1" data-player="${i}" aria-label="Una Energy in più a ${name(i)}">+</button>
+      <button type="button" class="en-reset" data-energy="0" data-player="${i}" ${p.energy ? "" : "disabled"} aria-label="Azzera l'Energy di ${name(i)}">0</button>
+    </div>`;
+}
+
+/** The way into the game diary, with its summary. */
+const diaryButton = () => `
+  <button type="button" class="table-btn diary-btn" data-diary-open>
+    ${icon("diary")}
+    <span><strong>Diario partite</strong><span class="muted small">${diarySummary()}</span></span>
+  </button>`;
+
+/** At the end of a 1v1 game: save it in the diary with the two legends. */
+function diarySaveBox() {
+  if (game.winner === null || game.players.length !== 2 || MODES[game.mode].teams) return "";
+  if (game.saved) {
+    return `<p class="diary-saved">${icon("check")}Partita salvata nel diario · <button type="button" class="link-btn" data-diary-open>Apri il diario</button></p>`;
+  }
+  return `
+    <div class="diary-save">
+      <p><strong>Salva nel diario</strong> <span class="muted small">per le statistiche contro ogni Leggenda</span></p>
+      <div class="diary-form">
+        ${legendSelect("mine", "La tua Leggenda")}
+        ${legendSelect("opp", "Leggenda avversaria")}
+        <button type="button" class="primary-btn small" data-diary-save>${icon("diary")}Salva</button>
+      </div>
+    </div>`;
 }
 
 function playerCard(p, i) {
@@ -103,6 +143,7 @@ function playerCard(p, i) {
         <button type="button" data-score="other" data-player="${i}" ${off} title="Punto da altre fonti, es. Burn Out dell'avversario o effetti di carte">+1 Altro</button>
         <button type="button" data-score="minus" data-player="${i}" ${ended || !p.points ? "disabled" : ""} aria-label="Togli un punto a ${name(i)}">−1</button>
       </div>
+      ${energyRow(p, i, "energy")}
     </section>`;
 }
 
@@ -152,12 +193,14 @@ function logView() {
 function gameView() {
   const m = MODES[game.mode];
   return `
+    ${timerView()}
     <div class="score-meta">
       <span>${m.label}</span><span>·</span><span>${game.victory} punti</span>
       ${m.bestOf > 1 ? `<span>·</span><span>Partita ${game.round}</span>` : ""}
       ${ruleRef(m.rule)}
     </div>
     ${banner()}
+    ${diarySaveBox()}
     <button type="button" class="table-btn" data-table-open>
       ${icon("table")}
       <span><strong>Modalità tavolo</strong>
@@ -174,7 +217,8 @@ function gameView() {
         <span class="muted small">Le domande includono lo stato della partita</span></span>
       <input type="checkbox" class="switch" role="switch" data-share ${share ? "checked" : ""}>
     </label>
-    ${logView()}`;
+    ${logView()}
+    ${diaryButton()}`;
 }
 
 // --- Table mode: the phone lies between the players, the top half faces the opponent ---
@@ -209,7 +253,8 @@ function tablePlayer(i) {
           <button type="button" data-score="hold" data-player="${i}" ${off}>${icon("castle")}Tenuta</button>
           <button type="button" data-score="other" data-player="${i}" ${off}>+1</button>
           <button type="button" data-score="minus" data-player="${i}" ${ended || !p.points ? "disabled" : ""} aria-label="Togli un punto a ${name(i)}">−1</button>
-        </div>`;
+        </div>
+        ${energyRow(p, i, "tp-energy")}`;
   return `
     <div class="tp${matchPoint ? " match-point" : ""}${game.winner === i ? " winner" : ""}" style="--hue:${HUES[i]};--tint:${TINTS[i]}">
       <p class="tp-name">${name(i)}${wins}</p>
@@ -237,6 +282,7 @@ function tableView() {
       <div class="table-mid">
         <button type="button" class="tm-btn" data-undo aria-label="Annulla l'ultima azione" ${game.log.length ? "" : "disabled"}>${icon("undo")}</button>
         <span class="tm-target" title="Punti per vincere">${icon("trophy")}${game.victory}</span>
+        ${tableClock()}
         ${next}
         <button type="button" class="tm-btn" data-table-close aria-label="Esci dalla modalità tavolo">${icon("close")}</button>
       </div>
@@ -315,7 +361,21 @@ function reset() {
 function onClick(e) {
   const t = e.target.closest("button");
   if (!t) return;
-  if ("tableOpen" in t.dataset) openTable();
+  if (t.dataset.timer) timerAction(t.dataset.timer);
+  else if (t.dataset.energy) {
+    const i = Number(t.dataset.player);
+    const value = t.dataset.energy === "0" ? 0 : game.players[i].energy + Number(t.dataset.energy);
+    game = setEnergy(game, i, value);
+    save();
+    render();
+  } else if ("diaryOpen" in t.dataset) openDiary();
+  else if ("diarySave" in t.dataset) {
+    saveGame({ won: game.winner === 0, score: summary(game) });
+    game = { ...game, saved: true };
+    save();
+    render();
+    toast("Partita salvata nel diario");
+  } else if ("tableOpen" in t.dataset) openTable();
   else if ("tableClose" in t.dataset) table.close();
   else if (t.dataset.score) act(Number(t.dataset.player), t.dataset.score);
   else if (t.dataset.all) {
@@ -339,7 +399,8 @@ function onClick(e) {
 }
 
 function onChange(e) {
-  if (e.target.name === "mode") {
+  if (e.target.dataset.legend) setLastLegend(e.target.dataset.legend, e.target.value);
+  else if (e.target.name === "mode") {
     setup = { mode: e.target.value, names: setup.names, victory: MODES[e.target.value].victory };
     render();
   } else if ("share" in e.target.dataset) {
@@ -363,9 +424,13 @@ function onSubmit(e) {
 
 export function initScoreboard() {
   save(); // refresh the header button
+  const redraw = () => (dialog.open || table.open) && render();
+  initTimer(redraw);
+  initDiary(redraw);
   button.addEventListener("click", () => {
     render();
     dialog.showModal();
+    loadLegends().then(redraw); // for "Salva nel diario" at the end of a game
   });
   body.addEventListener("click", onClick);
   tableBody.addEventListener("click", onClick);

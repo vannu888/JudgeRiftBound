@@ -2093,6 +2093,440 @@ mark {
   gap: 1px;
 }
 
+/* ---------- Round timer (top of the scoreboard) ---------- */
+.timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 14px;
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+}
+.timer-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--gold);
+}
+.timer-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 90px;
+  margin: 0;
+}
+.timer-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.timer-clock {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text);
+  font-variant-numeric: tabular-nums; /* a ticking clock must not jitter */
+}
+.timer-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.timer .stepper {
+  padding: 2px;
+}
+.timer .stepper button {
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+}
+.timer .stepper output {
+  min-width: 38px;
+  font-size: 15px;
+}
+.timer.running {
+  border-color: rgba(217, 180, 95, 0.45);
+}
+.timer.running .timer-clock {
+  color: var(--gold-soft);
+}
+.timer.paused .timer-clock {
+  color: var(--text-dim);
+}
+.timer.over {
+  border-color: rgba(255, 120, 110, 0.6);
+  background: rgba(58, 14, 14, 0.55);
+}
+.timer.over .timer-label,
+.timer.over .timer-clock,
+.timer.over .timer-icon {
+  color: #ff8f85;
+}
+/* Minutes left in the header's scoreboard button */
+.timer-chip {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(217, 180, 95, 0.16);
+  color: var(--gold-soft);
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.timer-chip.over {
+  background: rgba(255, 120, 110, 0.18);
+  color: #ff8f85;
+}
+/* Small phones: with the minutes in the header, the logo makes room, and so does
+   the trophy during a game (the score says what the button is) or "Punti" without one. */
+@media (max-width: 400px) {
+  .topbar:has(.timer-chip:not([hidden])) .brand-mark,
+  .score-btn.live:has(.timer-chip:not([hidden])) > .i,
+  .score-btn:not(.live):has(.timer-chip:not([hidden])) .score-chip {
+    display: none;
+  }
+}
+
+/* ---------- Unspent Energy (scoreboard and table mode) ---------- */
+.energy,
+.tp-energy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 12px;
+}
+.energy {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+.tp-energy {
+  width: min(100%, 380px);
+  border-radius: 15px;
+  background: rgba(6, 9, 13, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.en-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.en-label .i {
+  width: 16px;
+  height: 16px;
+  color: var(--hue);
+}
+.energy button,
+.tp-energy button {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: none;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.tp-energy button {
+  width: 40px;
+  height: 40px;
+}
+.energy button:disabled,
+.tp-energy button:disabled {
+  opacity: 0.35;
+}
+.energy .en-reset,
+.tp-energy .en-reset {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.energy output,
+.tp-energy output {
+  min-width: 26px;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.table.n3 .tp-energy,
+.table.n4 .tp-energy {
+  gap: 3px;
+  padding-left: 8px;
+}
+.table.n3 .en-text,
+.table.n4 .en-text {
+  display: none; /* half the width: the icon is enough */
+}
+.table.n3 .tp-energy button,
+.table.n4 .tp-energy button {
+  width: 34px;
+  height: 36px;
+}
+/* The timer in table mode's middle strip */
+.tm-clock {
+  min-width: 66px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  color: var(--gold-soft);
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.tm-clock.paused {
+  color: var(--text-dim);
+}
+.tm-clock.over {
+  border-color: rgba(255, 120, 110, 0.6);
+  color: #ff8f85;
+}
+
+/* ---------- Game diary ---------- */
+.diary-btn {
+  margin: 14px 0 0;
+  border-color: rgba(217, 180, 95, 0.4);
+  background: linear-gradient(135deg, rgba(217, 180, 95, 0.12), rgba(217, 180, 95, 0.03));
+}
+.diary-btn > .i {
+  color: var(--gold);
+}
+.diary-save {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(217, 180, 95, 0.4);
+  background: var(--panel-solid);
+}
+.diary-save > p {
+  margin: 0 0 10px;
+}
+.diary-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+  gap: 10px;
+}
+.legend-pick {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.legend-pick select {
+  width: 100%;
+}
+.diary-saved {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  color: var(--gold-soft);
+}
+.link-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--gold-soft);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 13px;
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+}
+.kpi-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--text);
+}
+.kpi-sub {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.diary-add {
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--panel);
+}
+.diary-add summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  list-style: none;
+  font-weight: 700;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.diary-add summary::-webkit-details-marker {
+  display: none;
+}
+.diary-add .diary-form {
+  padding: 0 14px 14px;
+}
+.seg {
+  display: inline-flex;
+  justify-self: start;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.seg button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-weight: 700;
+  cursor: pointer;
+}
+.seg button[aria-pressed="true"] {
+  background: var(--gold);
+  color: #1c160a;
+}
+.records,
+.games {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* long names get an ellipsis instead of widening the panel */
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.records {
+  gap: 12px;
+}
+.games {
+  gap: 6px;
+}
+.rec {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 5px 10px;
+}
+.rec-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rec-count {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.rec-rate {
+  min-width: 42px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* Win rate: gold on a lighter step of the same gold. */
+.meter {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(217, 180, 95, 0.16);
+  overflow: hidden;
+}
+.meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gold);
+}
+.game-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+  border-radius: 12px;
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+}
+.gr-result {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.gr-result.win {
+  background: rgba(21, 170, 113, 0.18);
+  color: #5fd3a0;
+}
+.gr-result.loss {
+  background: rgba(255, 120, 110, 0.16);
+  color: #ff8f85;
+}
+.gr-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.gr-legends {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.gr-legends em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+.gr-meta {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
 /* ---------- Table mode: the phone between the players ---------- */
 .table-dialog {
   width: 100vw;
@@ -2947,6 +3381,9 @@ mark {
     grid-column: 2;
     grid-row: 1 / span 4;
   }
+  .player > .energy {
+    grid-column: 1 / -1;
+  }
   .points .big {
     font-size: 46px;
   }
@@ -2981,5 +3418,19 @@ mark {
   .rule-ref {
     padding-top: 0.08em;
     padding-bottom: 0.08em;
+  }
+}
+/* The smallest phones (320px): no logo, slightly smaller header buttons (after the 600px rules). */
+@media (max-width: 350px) {
+  .brand-mark {
+    display: none;
+  }
+  .actions {
+    gap: 4px;
+  }
+  .ghost-btn {
+    min-width: 38px;
+    height: 38px;
+    padding: 0 9px;
   }
 }

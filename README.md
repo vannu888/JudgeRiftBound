@@ -13,8 +13,9 @@ gratuita di Google Gemini**.
   (Ganking, Deflect…) aprono la loro regola.
 - 🔎 **Archivio** con due schede: **Carte** (ricerca, filtri per dominio e tipo, inserimento nella
   domanda) e **Regole** (ricerca nel regolamento per parola o numero).
-- 🏆 **Segnapunti** per la partita con le regole ufficiali di punteggio (vedi sotto); se vuoi, il
-  judge conosce il punteggio quando gli fai una domanda.
+- 🏆 **Segnapunti** per la partita con le regole ufficiali di punteggio (vedi sotto), Energy non
+  spesa, timer del round e diario delle partite con le statistiche per Leggenda; se vuoi, il judge
+  conosce il punteggio quando gli fai una domanda.
 - ⚔️ **Calcolatore di combattimento** con il telefono al centro del tavolo: Might, parole chiave,
   chi muore e come finisce (vedi sotto).
 - 💬 Chat con risposte in **streaming**, ragionamento del judge visibile, follow-up, pulsante
@@ -119,17 +120,33 @@ Tocca **🏆 Punti** in alto:
    sei tu). I punti per vincere si possono cambiare.
 2. Durante la partita segna ogni punto con **⚔ Conquista** o **🏰 Tenuta** (una volta per battlefield
    per turno, 465); **＋1 Altro** per punti da altre fonti (es. effetti di carte) e **−1** per
-   correggere. **↶ Annulla** toglie l'ultima azione.
+   correggere. **↶ Annulla l'ultima** toglie l'ultima azione.
+   Sotto ogni giocatore c'è il contatore dell'**⚡ Energy non spesa** (quella "fluttuante" nel Rune
+   Pool): **−/+** e **0** per azzerarla, perché il Rune Pool si svuota a fine Draw e a fine turno (166).
 3. Quando a un giocatore manca **un solo punto** compare *Punto vincente*: con una Tenuta lo prende
    sempre, con una Conquista l'app chiede se in questo turno ha segnato **tutti** i battlefield —
    altrimenti niente punto e si pesca 1 carta (466.1.b).
 4. La vittoria viene annunciata secondo la regola 467; nel meglio di 3 si passa alla partita
    successiva tenendo il conto delle vittorie.
+5. A fine partita (1v1) scegli la tua Leggenda e quella dell'avversario e tocca **Salva nel diario**:
+   la volta dopo le Leggende sono già scelte.
+
+**⏱ Timer del round**: in cima al segnapunti. Scegli la durata (a passi di 5 minuti, 50 di base) e
+tocca **Avvia**; puoi mettere in pausa e azzerare. I minuti rimasti compaiono anche nel pulsante in
+alto e al centro della modalità tavolo (toccali per la pausa). A 5 minuti dalla fine e allo scadere
+l'app avvisa con un messaggio, una vibrazione e un suono dove il telefono lo consente (su iPhone il
+suono segue l'interruttore silenzioso); poi conta il tempo extra. Il timer continua anche se chiudi
+l'app o ricarichi la pagina.
+
+**📓 Diario partite**: dal segnapunti. Mostra partite giocate, percentuale di vittorie, serie attuale e
+il bilancio **contro ogni Leggenda avversaria** e **con ognuna delle tue**, con le ultime partite. Puoi
+aggiungere a mano le partite giocate senza segnapunti ed eliminarle. Resta solo sul tuo telefono.
 
 **Modalità tavolo**: tocca *Modalità tavolo* e appoggia il telefono al centro del tavolo. Lo schermo
 si divide a metà e la metà in alto è capovolta verso l'avversario: ognuno ha davanti il proprio
-punteggio e i propri pulsanti (con 3-4 giocatori, due per lato). Al centro ci sono Annulla, i punti per
-vincere ed Esci; lo schermo resta acceso finché la modalità è aperta (dove il telefono lo consente).
+punteggio, i propri pulsanti e la propria Energy (con 3-4 giocatori, due per lato). Al centro ci sono
+Annulla, i punti per vincere, il timer ed Esci; lo schermo resta acceso finché la modalità è aperta
+(dove il telefono lo consente).
 Ogni metà ha la sua illustrazione (`table-bottom.webp` dal tuo lato, `table-top.webp` da quello
 dell'avversario): per cambiarle basta sostituire i due file in `public/img/`.
 
@@ -230,7 +247,9 @@ JudgeRiftBound/
 │   ├── cards.js                  # archivio, chip e dettaglio carte
 │   ├── history.js                # cronologia salvata sul dispositivo
 │   ├── storage.js                # salvataggi locali sicuri (localStorage)
-│   ├── score.js · score-model.js # segnapunti (interfaccia e regole di punteggio)
+│   ├── score.js · score-model.js # segnapunti (interfaccia e regole di punteggio, Energy non spesa)
+│   ├── timer.js · timer-model.js # timer del round (interfaccia e logica)
+│   ├── diary.js · diary-model.js # diario partite e statistiche per Leggenda
 │   ├── combat.js · combat-model.js # calcolatore di combattimento (interfaccia e regole 460-461)
 │   ├── api.js                    # chiamate al server (e blocco con password)
 │   └── markdown.js               # rendering sicuro di risposte e simboli di gioco
@@ -244,7 +263,8 @@ npm test
 ```
 
 Verificano il riconoscimento delle carte, il regolamento (compattazione, ricerca, sezioni), le
-regole di punteggio del segnapunti, i calcoli del combattimento (Might, parole chiave, ordine dei
+regole di punteggio del segnapunti, il timer del round, il diario e le sue statistiche, i calcoli
+del combattimento (Might, parole chiave, ordine dei
 danni, esito), il rendering sicuro, la password e i limiti, il service worker,
 lo scraper e l'intero flusso della chat (con Gemini simulato: streaming, modelli di riserva, cache
 delle risposte, limiti, timeout, compressione).
@@ -290,4 +310,4 @@ delle risposte, limiti, timeout, compressione).
 - Questo strumento si basa sulle Core Rules e **non sostituisce** un judge certificato: in un torneo
   ufficiale la parola finale spetta all'arbitro presente.
 - La chiave API resta **solo sul server** (nel file `.env`, escluso da Git) e non viene mai esposta al
-  browser. Cronologia e segnapunti restano solo sul tuo dispositivo.
+  browser. Cronologia, segnapunti, timer e diario restano solo sul tuo dispositivo.

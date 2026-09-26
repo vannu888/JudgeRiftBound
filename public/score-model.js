@@ -24,12 +24,23 @@ export function newGame(mode, names = [], victory) {
   return {
     mode: key,
     victory: victory ?? MODES[key].victory,
-    players: defaultNames(key).map((d, i) => ({ name: String(names[i] ?? "").trim() || d, points: 0, wins: 0 })),
+    // energy: unspent Energy in the player's Rune Pool (it empties at the end of Draw and of the turn, 166)
+    players: defaultNames(key).map((d, i) => ({ name: String(names[i] ?? "").trim() || d, points: 0, wins: 0, energy: 0 })),
     log: [], // { player, kind, delta, drew? } — newest last
     winner: null, // index of this game's winner
     matchWinner: null, // index of the best-of-3 winner
     round: 1,
+    saved: false, // this game is already in the diary
   };
+}
+
+export const MAX_ENERGY = 99;
+
+/** Set player `i`'s unspent Energy (not a scoring action: it stays out of the log and of undo). */
+export function setEnergy(g, i, value) {
+  if (!g.players[i]) return g;
+  const energy = Math.min(MAX_ENERGY, Math.max(0, Math.trunc(Number(value)) || 0));
+  return { ...g, players: g.players.map((p, j) => (j === i ? { ...p, energy } : p)) };
 }
 
 /** One point (or more) from the Victory Score: the Winning Point rules apply (466.1.b). */
@@ -84,7 +95,7 @@ export function nextRound(g) {
   const needed = Math.ceil(MODES[g.mode].bestOf / 2);
   const champion = players.findIndex((p) => p.wins >= needed);
   if (champion !== -1) return { ...g, players, matchWinner: champion };
-  return { ...g, players: players.map((p) => ({ ...p, points: 0 })), log: [], winner: null, round: g.round + 1 };
+  return { ...g, players: players.map((p) => ({ ...p, points: 0, energy: 0 })), log: [], winner: null, round: g.round + 1, saved: false };
 }
 
 /** "6–7" for duels, "6 · 7 · 3" with more players. */
@@ -108,12 +119,14 @@ export function restoreGame(raw) {
       ...p,
       points: Math.max(0, Math.trunc(Number(raw.players[i]?.points) || 0)),
       wins: Math.max(0, Math.trunc(Number(raw.players[i]?.wins) || 0)),
+      energy: Math.min(MAX_ENERGY, Math.max(0, Math.trunc(Number(raw.players[i]?.energy) || 0))),
     }));
     const valid = (e) => g.players[e?.player] && Object.hasOwn(KIND_LABEL, e.kind) && [-1, 0, 1].includes(e.delta);
     g.log = Array.isArray(raw.log) ? raw.log.filter(valid) : [];
     g.round = Math.max(1, Math.trunc(Number(raw.round) || 1));
     g.winner = winnerOf(g);
     g.matchWinner = Number.isInteger(raw.matchWinner) && g.players[raw.matchWinner] ? raw.matchWinner : null;
+    g.saved = raw.saved === true;
     return g;
   } catch {
     return null;

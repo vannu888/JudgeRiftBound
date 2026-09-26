@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MODES, newGame, score, undo, nextRound, winnerOf, summary, toContext, restoreGame } from "../public/score-model.js";
+import { MODES, newGame, score, undo, nextRound, winnerOf, summary, toContext, restoreGame, setEnergy } from "../public/score-model.js";
 
 /** Apply a list of [player, kind, options?] actions. */
 const play = (g, actions) => actions.reduce((acc, [i, kind, opts]) => score(acc, i, kind, opts).game, g);
@@ -95,4 +95,21 @@ test("context for the judge and restore from storage", () => {
   // A corrupted target score is kept within the setup screen's bounds.
   assert.equal(restoreGame({ ...tampered, victory: 1e9 }).victory, 30);
   assert.equal(restoreGame({ ...tampered, victory: "x" }).victory, MODES[tampered.mode].victory);
+});
+
+test("unspent Energy: per player, not scored, reset for the next game", () => {
+  let g = newGame("match");
+  g = setEnergy(g, 0, 3);
+  g = setEnergy(g, 1, -2);
+  assert.deepEqual(g.players.map((p) => p.energy), [3, 0]);
+  assert.equal(setEnergy(g, 0, 500).players[0].energy, 99);
+  assert.equal(g.log.length, 0); // not a scoring action: undo ignores it
+  assert.ok(!("energy" in toContext(g).players[0])); // the judge gets the score only
+  assert.equal(restoreGame(JSON.parse(JSON.stringify(g))).players[0].energy, 3);
+  g = play(g, Array.from({ length: 8 }, () => [0, "hold"]));
+  g = { ...g, saved: true };
+  const next = nextRound(g);
+  assert.deepEqual(next.players.map((p) => p.energy), [0, 0]);
+  assert.equal(next.saved, false);
+  assert.equal(restoreGame(JSON.parse(JSON.stringify(g))).saved, true);
 });
