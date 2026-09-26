@@ -9,12 +9,19 @@ const SHELL = `shell-${VERSION}`; // the app itself
 const DATA = `data-${VERSION}`; // rules, card searches and server status already fetched
 const MAX_DATA = 400;
 
+/** Did this response come from this version of the app? (The server stamps every file.) */
+const sameVersion = (response) => response.headers.get("x-app-version") === VERSION;
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
+      // Straight from the server, and all from this version: while the server is being
+      // updated it may still answer with old files, and a mix would break the app until
+      // the next update. In that case the install fails and the browser tries again later.
+      const responses = await Promise.all(ASSETS.map((url) => fetch(url, { cache: "reload" })));
+      if (responses.some((r) => !r.ok || !sameVersion(r))) throw new Error("App files from different versions: retry later");
       const cache = await caches.open(SHELL);
-      // "no-cache": revalidate with the server instead of copying stale HTTP-cache entries.
-      await cache.addAll(ASSETS.map((url) => new Request(url, { cache: "no-cache" })));
+      await Promise.all(responses.map((r, i) => cache.put(ASSETS[i], r)));
       await self.skipWaiting();
     })(),
   );
@@ -47,7 +54,8 @@ async function cacheFirst(name, key, request) {
   const hit = await cache.match(key, { ignoreSearch: request.mode === "navigate" });
   if (hit) return hit;
   const response = await fetch(request);
-  if (response.ok) {
+  // App files join the cache only if they belong to this version.
+  if (response.ok && (name === DATA || sameVersion(response))) {
     await cache.put(key, response.clone());
     if (name === DATA) trim(cache);
   }

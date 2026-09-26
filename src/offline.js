@@ -17,18 +17,22 @@ function listFiles(dir, prefix = "") {
 }
 
 /**
- * The service worker source for `publicDir`. `dataFiles` also change the
- * version, because cached rule and card lookups depend on them.
+ * The app's version and its service worker source for `publicDir`. `dataFiles`
+ * also change the version, because cached rule and card lookups depend on them.
+ * The server stamps every file with the version (X-App-Version), so the phone
+ * never stores files of two versions together (e.g. during a deploy).
  */
-export function buildServiceWorker(publicDir, dataFiles = []) {
+export function buildOffline(publicDir, dataFiles = []) {
   const template = fs.readFileSync(new URL("./service-worker.js", import.meta.url), "utf8");
   const files = listFiles(publicDir).filter((f) => !SKIP.test(f));
   const hash = crypto.createHash("sha256");
   for (const f of files) hash.update(f).update(fs.readFileSync(path.join(publicDir, f)));
   for (const f of dataFiles) if (fs.existsSync(f)) hash.update(fs.readFileSync(f));
   hash.update(template);
+  const version = hash.digest("hex").slice(0, 12);
   const assets = files.map((f) => (f === "index.html" ? "/" : `/${f}`));
-  return template
-    .replace("__VERSION__", hash.digest("hex").slice(0, 12))
-    .replace('["__ASSETS__"]', JSON.stringify(assets));
+  return { version, script: template.replace("__VERSION__", version).replace('["__ASSETS__"]', JSON.stringify(assets)) };
 }
+
+/** Just the service worker source (see buildOffline). */
+export const buildServiceWorker = (publicDir, dataFiles) => buildOffline(publicDir, dataFiles).script;

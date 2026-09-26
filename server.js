@@ -8,15 +8,14 @@ import { CARDS, CARD_NAMES, UNIT_STATS, DECK_CARDS, DOMAINS, CARDS_UPDATED_AT, s
 import { RULE_COUNT, getRule, searchRules } from "./src/rules.js";
 import { createAskHandler } from "./src/ask.js";
 import { createAccessControl, rateLimit } from "./src/security.js";
-import { buildServiceWorker } from "./src/offline.js";
+import { buildOffline } from "./src/offline.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(here, "public");
 const PORT = Number(process.env.PORT || 3000);
 const CARD_TYPES = [...new Set(CARDS.map((c) => c.type).filter(Boolean))].sort();
 
-// Built on first request: its version is a fingerprint of the app, rules and cards.
-let serviceWorker;
+// The version is a fingerprint of the app, rules and cards (see src/offline.js).
 const DATA_FILES = ["riftbound-core-rules.txt", "cards.json"].map((f) => path.join(here, "data", f));
 
 // Hardening for when the app is online: scripts, data and fonts only from this
@@ -64,14 +63,15 @@ export function createApp({
   // of /api/ask: compressing it would buffer the answer instead of streaming it.
   app.use(compression({ filter: (req, res) => req.path !== "/api/ask" && compression.filter(req, res) }));
   app.use(express.json({ limit: "1mb" }));
+  const offline = buildOffline(PUBLIC, DATA_FILES);
   app.get("/sw.js", (_req, res) => {
-    serviceWorker ??= buildServiceWorker(PUBLIC, DATA_FILES);
-    res.type("js").set("Cache-Control", "no-cache").send(serviceWorker);
+    res.type("js").set("Cache-Control", "no-cache").send(offline.script);
   });
   app.use(
     express.static(PUBLIC, {
       // Fonts, icons and artwork hardly ever change; the rest is revalidated (tiny 304s).
       setHeaders(res, file) {
+        res.set("X-App-Version", offline.version); // the service worker keeps only files of one version
         if (/[\\/](?:fonts|icons|img)[\\/]/.test(file)) res.set("Cache-Control", "public, max-age=604800");
       },
     }),

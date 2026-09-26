@@ -20,8 +20,13 @@ test("the service worker lists the app files and is never cached stale", async (
     for (const file of ["/", "/app.js", "/styles.css", "/fonts/cinzel-latin.woff2"]) assert.ok(assets.includes(file), file);
     assert.ok(!assets.includes("/index.html"));
     assert.ok(!assets.some((a) => a.includes("icon-512")));
-    // Every listed file really exists (a 404 would make the install fail).
-    for (const a of assets) assert.equal((await fetch(base + a)).status, 200, a);
+    // Every listed file really exists (a 404 would make the install fail) and carries the
+    // same version as the service worker, which stores only files of its own version.
+    for (const a of assets) {
+      const file = await fetch(base + a);
+      assert.equal(file.status, 200, a);
+      assert.equal(file.headers.get("x-app-version"), versionOf(source), a);
+    }
   });
 });
 
