@@ -14,9 +14,12 @@ const isNumber = (ref) => /^\d{3}/.test(ref);
 const text = (s) => withRuleRefs(escapeHtml(s));
 const notes = (list) => (list?.length ? `<div class="rule-notes">${list.map((n) => `<p>${text(n)}</p>`).join("")}</div>` : "");
 
+/** "Regola 309.1.a", with the number in the body font (see .rule-id). */
+const ruleTitle = (id) => `Regola <span class="rule-id">${escapeHtml(id)}</span>`;
+
 /** Open the official text of a rule number ("309.1.a") or a keyword ("Deflect"). */
 export async function openRule(ref) {
-  titleEl.textContent = isNumber(ref) ? `Regola ${ref}` : ref;
+  titleEl.innerHTML = isNumber(ref) ? ruleTitle(ref) : escapeHtml(ref);
   body.innerHTML = `<p class="muted">Caricamento…</p>`;
   if (!dialog.open) dialog.showModal();
   try {
@@ -32,7 +35,8 @@ export async function openRule(ref) {
 
 function render(rule) {
   // Section headings read best by name ("809 · Deflect"), everything else by number.
-  titleEl.textContent = !rule.parents.length && rule.text.length <= 40 ? `${rule.id} · ${rule.text}` : `Regola ${rule.id}`;
+  titleEl.innerHTML =
+    !rule.parents.length && rule.text.length <= 40 ? `${escapeHtml(rule.id)} · ${escapeHtml(rule.text)}` : ruleTitle(rule.id);
   const crumbs = rule.parents
     .map((p) => `<button type="button" class="crumb" data-rule="${p.id}"><b>${p.id}</b> ${escapeHtml(p.text)}</button>`)
     .join("");

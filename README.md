@@ -15,13 +15,17 @@ gratuita di Google Gemini**.
   domanda) e **Regole** (ricerca nel regolamento per parola o numero).
 - 🏆 **Segnapunti** per la partita con le regole ufficiali di punteggio (vedi sotto); se vuoi, il
   judge conosce il punteggio quando gli fai una domanda.
+- ⚔️ **Calcolatore di combattimento** con il telefono al centro del tavolo: Might, parole chiave,
+  chi muore e come finisce (vedi sotto).
 - 💬 Chat con risposte in **streaming**, ragionamento del judge visibile, follow-up, pulsante
   **Stop**, **Rigenera**, **Copia** e **Condividi**.
-- 🕘 **Cronologia** delle ultime 30 conversazioni, salvata sul dispositivo (nessun dato sul server).
+- 🕘 **Cronologia** delle ultime 30 conversazioni con l'anteprima dell'ultimo verdetto, salvata sul
+  dispositivo (nessun dato sul server).
 - 📱 **Installabile** su iPhone come app (Safari → Condividi → Aggiungi a Home), con icona propria.
   Si apre all'istante anche mentre il server gratuito si risveglia e funziona **offline** per
   segnapunti, cronologia e regole già consultate.
-- 🔒 **Password d'accesso** opzionale e limite di domande al minuto, per quando la metti online.
+- 🔒 **Password d'accesso** opzionale, limite di domande al minuto e intestazioni di sicurezza
+  (niente script esterni, niente incorporamento in altri siti), per quando la metti online.
 - 🆓 Usa il **piano gratuito di Google Gemini** (nessuna carta di credito richiesta) e lo fa durare
   il più possibile: modello di riserva quando il primo esaurisce la quota, risposte già date
   riutilizzate senza consumi, follow-up più leggeri.
@@ -142,8 +146,8 @@ chi difende.
 
 - **+ Unità** cerca la carta per nome (in inglese) e ne carica il **Might** e le parole chiave
   stampate: **Assault** conta solo in attacco, **Shield** solo in difesa, **Tank** e **Backline**
-  decidono l'ordine dei danni. Ci sono anche i segnalini (Recruit, Sand Soldier, Mech…) e le unità
-  senza carta con il Might che vuoi.
+  decidono l'ordine dei danni. Ci sono anche i segnalini (Recruit, Sand Soldier, Mech…), le unità
+  senza carta con il Might che vuoi e le ultime carte usate, da aggiungere con un tocco.
 - Toccando un'unità si aprono i modificatori: **Buff** (+1, uno solo), **+/− per questo turno**,
   **bonus dell'equipaggiamento**, **danni già subiti**, **Stordita** (non infligge danni ma serve
   tutto il suo Might per ucciderla), Tank/Backline concessi, Assault/Shield in più e **Danni per

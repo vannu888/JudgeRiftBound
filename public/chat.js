@@ -12,25 +12,51 @@ export function scrollDown(force = false) {
 }
 
 let toastTimer;
-/** Short notification at the bottom of the screen. */
+/**
+ * Short notification at the bottom of the screen. It is a popover, so it also
+ * shows above an open dialog (scoreboard, table mode, combat).
+ */
 export function toast(message) {
   toastEl.textContent = message;
+  if (toastEl.showPopover) {
+    if (toastEl.matches(":popover-open")) toastEl.hidePopover(); // back on top of a dialog opened since
+    toastEl.showPopover();
+    void toastEl.offsetWidth; // start the fade from the hidden state
+  }
   toastEl.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2400);
+  toastTimer = setTimeout(() => {
+    toastEl.classList.remove("show");
+    toastTimer = setTimeout(() => toastEl.hidePopover?.(), 250);
+  }, 2400);
 }
 
-/** Copy text; falls back to execCommand where the Clipboard API is unavailable (plain http). */
+/**
+ * Copy text. Without the Clipboard API (plain http, e.g. the phone on the home
+ * Wi-Fi) it selects a hidden text box and copies that; iOS only copies an
+ * editable box selected with a range.
+ */
 export async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    const area = Object.assign(document.createElement("textarea"), { value: text, readOnly: true });
-    area.style.cssText = "position:fixed;opacity:0";
+    const area = Object.assign(document.createElement("textarea"), { value: text, contentEditable: "true" });
+    area.style.cssText = "position:fixed;top:0;left:-9999px;font-size:16px"; // 16px: no zoom on iOS
     document.body.append(area);
-    area.select();
-    const ok = document.execCommand("copy");
+    const range = document.createRange();
+    range.selectNodeContents(area);
+    const selection = getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    area.setSelectionRange(0, text.length);
+    let ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch {
+      /* not supported */
+    }
+    selection.removeAllRanges();
     area.remove();
     return ok;
   }
@@ -106,7 +132,7 @@ export function addNote(ui, message, kind = "error") {
 const fmt = (n) => Number(n ?? 0).toLocaleString("it-IT");
 
 /** "gemini-flash-lite-latest" -> "Flash-Lite" */
-const modelName = (id) =>
+export const modelName = (id) =>
   id.replace(/^gemini-/, "").replace(/-latest$/, "").replace(/(^|-)([a-z])/g, (_, sep, c) => sep + c.toUpperCase());
 
 /** What the answer cost: tokens, the part Gemini reused from its cache, the model. */

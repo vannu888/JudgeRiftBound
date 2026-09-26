@@ -45,12 +45,25 @@ export function relativeTime(ts) {
 
 const questions = (s) => s.messages.filter((m) => m.role === "user").length;
 
+/** The latest verdict in plain text: what the list shows under each question. */
+export function verdictOf(s) {
+  const answer = s.messages.findLast((m) => m.role === "assistant")?.content ?? "";
+  const m = /(?:^|\n)\s*(?:#{1,4}\s*|\*\*)Verdetto\b[:*\s]*([\s\S]*?)(?=\n\s*(?:#{1,4}\s|\*\*[^*\n]{2,30}\*\*)|$)/i.exec(answer);
+  const text = (m ? m[1] : answer)
+    .replace(/[#*`>_]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > 140 ? `${text.slice(0, 139).trimEnd()}…` : text;
+}
+
 function itemHtml(s, current) {
   const n = questions(s);
+  const verdict = verdictOf(s);
   return `
     <li>
       <button type="button" class="history-item" data-open="${s.id}">
         <span class="h-title">${escapeHtml(s.title)}</span>
+        ${verdict ? `<span class="h-verdict">${escapeHtml(verdict)}</span>` : ""}
         <span class="h-meta">${n} ${n === 1 ? "domanda" : "domande"} · ${relativeTime(s.updatedAt)}${s.id === current ? " · <b>aperta</b>" : ""}</span>
       </button>
       <button type="button" class="icon-btn small" data-delete="${s.id}" aria-label="Elimina la sessione">${icon("trash")}</button>

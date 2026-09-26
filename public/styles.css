@@ -368,7 +368,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 22px;
-  padding: 12px 4px 26px;
+  padding: 12px 4px 56px; /* the last answer's buttons stay clear of the composer's fade */
 }
 
 /* ---------- Welcome ---------- */
@@ -415,11 +415,16 @@ textarea {
   border-radius: 999px;
   padding: 5px 12px;
 }
+.stats > .warn {
+  color: var(--gold-soft);
+  border-color: rgba(217, 180, 95, 0.45);
+}
 .examples-label {
   font-size: 11.5px;
+  font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-dim);
   margin: 0 0 12px;
 }
 .examples {
@@ -1180,6 +1185,12 @@ select.field {
 .card-dialog .drawer-head h2 {
   font-size: 16px;
 }
+/* Rule numbers in the display font would turn "309.1.a" into "309.1.A". */
+.rule-id {
+  font-family: var(--font-body);
+  font-weight: 800;
+  letter-spacing: 0;
+}
 .field::-webkit-search-cancel-button {
   filter: grayscale(1) brightness(1.8);
   cursor: pointer;
@@ -1290,10 +1301,15 @@ select.field {
 }
 .card-tile footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
   margin-top: 11px;
+}
+.card-tile footer .chip-btn {
+  margin-left: auto;
+  white-space: nowrap;
 }
 .ct-codes {
   font-size: 11px;
@@ -1426,8 +1442,9 @@ select.field {
 /* Toast */
 .toast {
   position: fixed;
-  left: 50%;
-  bottom: calc(110px + env(safe-area-inset-bottom));
+  inset: auto auto calc(110px + env(safe-area-inset-bottom)) 50%; /* not the popover's centring */
+  margin: 0;
+  overflow: visible;
   z-index: 50;
   max-width: min(92vw, 460px);
   padding: 10px 16px;
@@ -1491,6 +1508,15 @@ select.field {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.h-verdict {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-dim);
 }
 .h-meta {
   font-size: 12px;
@@ -1598,8 +1624,8 @@ select.field {
 }
 .rule-num.big {
   display: inline-block;
-  font-family: var(--font-display);
   font-size: 20px;
+  font-weight: 800;
   margin-bottom: 4px;
   cursor: default;
 }
@@ -1832,7 +1858,8 @@ mark {
 }
 .player {
   --hue: var(--gold);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 14px;
   border-radius: 16px;
@@ -1908,6 +1935,7 @@ mark {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
+  margin-top: auto; /* side by side, both players' buttons line up */
 }
 .acts button {
   display: inline-flex;
@@ -2905,6 +2933,7 @@ mark {
     grid-template-columns: minmax(0, 1fr);
   }
   .player {
+    display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.9fr);
     align-items: center;
     column-gap: 12px;

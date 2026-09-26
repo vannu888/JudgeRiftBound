@@ -92,4 +92,7 @@ test("context for the judge and restore from storage", () => {
   const tampered = JSON.parse(JSON.stringify(g));
   tampered.log.push({ player: 0, kind: "other", delta: 50 });
   assert.equal(restoreGame(tampered).log.length, 3);
+  // A corrupted target score is kept within the setup screen's bounds.
+  assert.equal(restoreGame({ ...tampered, victory: 1e9 }).victory, 30);
+  assert.equal(restoreGame({ ...tampered, victory: "x" }).victory, MODES[tampered.mode].victory);
 });

@@ -166,7 +166,7 @@ function gameView() {
     <div class="players n${game.players.length}">${game.players.map(playerCard).join("")}</div>
     ${pending !== null ? confirmBox() : ""}
     <div class="score-tools">
-      <button type="button" class="chip-btn" data-undo ${game.log.length ? "" : "disabled"}>${icon("undo")}Annulla</button>
+      <button type="button" class="chip-btn" data-undo ${game.log.length ? "" : "disabled"}>${icon("undo")}Annulla l'ultima</button>
       <button type="button" class="chip-btn danger" data-reset>${icon("refresh")}Nuova partita</button>
     </div>
     <label class="switch-row">

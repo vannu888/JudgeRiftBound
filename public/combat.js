@@ -11,6 +11,8 @@ import { words } from "./suggest.js";
 import { playerNames, scoreConquer } from "./score.js";
 
 const KEY = "jrb.combat.v1";
+const RECENT_KEY = "jrb.combat.recent"; // the last units picked from the cards, for one-tap adding
+const MAX_RECENT = 10;
 // Same colours and artwork as table mode: gold for you, teal for the opponent.
 const SIDES = {
   bottom: { hue: "#d9b45f", tint: "#2a2314", player: 0, fallback: "Tu" },
@@ -33,6 +35,10 @@ let adding = "bottom"; // the side the add panel adds to
 let added = []; // names added since the panel opened
 let generic = 2; // Might of a unit added without a card
 let scored = false; // this combat's Conquer is already on the scoreboard
+let recent = (() => {
+  const list = load(RECENT_KEY, []);
+  return Array.isArray(list) ? list.slice(0, MAX_RECENT).map(makeUnit) : [];
+})();
 const texts = new Map(); // card name -> rules text, fetched when its modifiers open
 
 const other = (side) => (side === "top" ? "bottom" : "top");
@@ -261,11 +267,14 @@ function renderAdd() {
   } else if (q) {
     list = `<p class="muted small">${catalog ? "Nessuna unità con questo nome." : "Elenco delle carte non disponibile ora: usa i segnalini o un'unità generica."}</p>`;
   }
+  const chip = (u, attr) =>
+    `<button type="button" class="chip-btn" ${attr}>${escapeHtml(u.name)} <b>${u.base}</b></button>`;
   addBody.innerHTML = `
     ${list}
     ${added.length ? `<p class="c-added">${icon("check")}Aggiunte: ${added.map(escapeHtml).join(" · ")}</p>` : ""}
+    ${!q && recent.length ? `<p class="setup-label">Usate di recente</p><div class="c-tokens">${recent.map((u, i) => chip(u, `data-recent="${i}"`)).join("")}</div>` : ""}
     <p class="setup-label">Segnalini</p>
-    <div class="c-tokens">${TOKENS.map((t, i) => `<button type="button" class="chip-btn" data-token="${i}">${t.name} <b>${t.base}</b></button>`).join("")}</div>
+    <div class="c-tokens">${TOKENS.map((t, i) => chip(t, `data-token="${i}"`)).join("")}</div>
     <p class="setup-label">Unità senza carta</p>
     <div class="c-generic">
       <span>Might</span>
@@ -276,6 +285,12 @@ function renderAdd() {
       </div>
       <button type="button" class="chip-btn" data-add-generic>${icon("plus")}Aggiungi</button>
     </div>`;
+}
+
+/** Keep a card among the recent ones, newest first. */
+function remember(card) {
+  recent = [makeUnit(card), ...recent.filter((u) => u.name !== card.name)].slice(0, MAX_RECENT);
+  store(RECENT_KEY, recent.map(({ name, base, assault, shield, tank, backline, check }) => ({ name, base, assault, shield, tank, backline, check })));
 }
 
 function addUnit(data) {
@@ -364,10 +379,12 @@ function onAddClick(e) {
   const d = t.dataset;
   if (d.pick) {
     const { words: _, ...card } = results[Number(d.pick)];
+    remember(card);
     search.value = "";
     addUnit(card);
     search.focus();
-  } else if (d.token) addUnit(TOKENS[Number(d.token)]);
+  } else if (d.recent) addUnit({ ...recent[Number(d.recent)], id: undefined });
+  else if (d.token) addUnit(TOKENS[Number(d.token)]);
   else if (d.generic) {
     generic = Math.min(30, Math.max(0, generic + Number(d.generic)));
     renderAdd();

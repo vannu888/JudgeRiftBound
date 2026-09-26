@@ -101,7 +101,9 @@ export const toContext = (g) => ({
 export function restoreGame(raw) {
   try {
     if (!raw || !Object.hasOwn(MODES, raw.mode) || !Array.isArray(raw.players) || raw.players.length < 2) return null;
-    const g = newGame(raw.mode, raw.players.map((p) => p.name), Number(raw.victory) || undefined);
+    // Same bounds as the setup screen: a huge value would draw a huge row of pips.
+    const victory = Math.min(30, Math.max(1, Math.trunc(Number(raw.victory)) || MODES[raw.mode].victory));
+    const g = newGame(raw.mode, raw.players.map((p) => p?.name), victory);
     g.players = g.players.map((p, i) => ({
       ...p,
       points: Math.max(0, Math.trunc(Number(raw.players[i]?.points) || 0)),

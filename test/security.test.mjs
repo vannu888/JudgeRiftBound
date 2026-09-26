@@ -44,3 +44,15 @@ test("questions are rate limited per client", async () => {
     assert.match(limited.json.error, /Troppe domande/);
   }, { askPerMinute: 2 });
 });
+
+test("every response carries the security headers", async () => {
+  await withServer({}, async (base) => {
+    for (const path of ["/", "/api/health", "/app.js"]) {
+      const res = await fetch(`${base}${path}`);
+      assert.match(res.headers.get("content-security-policy"), /script-src 'self'/);
+      assert.match(res.headers.get("content-security-policy"), /frame-ancestors 'none'/);
+      assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+      assert.equal(res.headers.get("referrer-policy"), "no-referrer");
+    }
+  });
+});

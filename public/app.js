@@ -2,7 +2,7 @@ import { renderMarkdown, setDomainColors } from "./markdown.js";
 import { request, setLockedHandler, LockedError } from "./api.js";
 import { initCardBrowser, renderCardChips } from "./cards.js";
 import { openRule, initRulesPanel } from "./rules.js";
-import { addUserMessage, createJudgeMessage, finishJudgeMessage, addNote, scrollDown, toast } from "./chat.js";
+import { addUserMessage, createJudgeMessage, finishJudgeMessage, addNote, scrollDown, toast, modelName } from "./chat.js";
 import { newSession, saveSession, listSessions, initHistory, renderRecent } from "./history.js";
 import { initScoreboard, gameContext } from "./score.js";
 import { initCombat } from "./combat.js";
@@ -17,6 +17,7 @@ const inputEl = $("input");
 const sendBtn = $("send");
 const archive = $("archive");
 
+const hasKeyboard = matchMedia("(hover: hover) and (pointer: fine)");
 /** A session updated this recently is reopened automatically (e.g. Safari reloaded mid-game). */
 const RESTORE_WINDOW_MS = 3 * 3600 * 1000;
 
@@ -109,7 +110,13 @@ async function start(attempt = 0) {
   } catch {
     // The free server may still be waking up: try again for a couple of minutes
     // (and whenever the phone gets back online, see below).
-    if (attempt < 8) startTimer = setTimeout(() => start(attempt + 1), Math.min(30_000, 2000 * 2 ** attempt));
+    const retrying = attempt < 8;
+    if (retrying) startTimer = setTimeout(() => start(attempt + 1), Math.min(30_000, 2000 * 2 ** attempt));
+    if (!panels) {
+      const text = !navigator.onLine ? "Sei offline" : retrying ? "Il server si sta avviando…" : "Server non raggiungibile";
+      $("stats").innerHTML = `<span class="warn">${icon("alert")}${text}</span>`;
+      $("stats").hidden = false;
+    }
     return;
   }
   if (health.locked) {
@@ -119,7 +126,8 @@ async function start(attempt = 0) {
   }
   $("apiWarning").hidden = health.hasApiKey;
   setDomainColors(health.domains);
-  const stats = [["book", `${health.rules} regole`], ["cards", `${health.cards} carte`], ["bolt", "Gemini"]];
+  const model = health.models?.[0] ? `Gemini ${modelName(health.models[0])}` : "Gemini";
+  const stats = [["book", `${health.rules} regole`], ["cards", `${health.cards} carte`], ["bolt", model]];
   $("stats").innerHTML = stats.map(([i, t]) => `<span>${icon(i)}${t}</span>`).join("");
   $("stats").hidden = false;
   if (!panels) {
@@ -365,6 +373,8 @@ async function ask({ fresh = false } = {}) {
   }
 
   flush(); // paint pending text first, so nothing overwrites the notes below
+  // Gemini can finish without a word (e.g. a blocked or empty reply): say so instead of showing nothing.
+  if (!answer.trim() && !error && !stopped) error = "Il judge non ha dato una risposta. Riprova, magari riformulando la domanda.";
   ui.root.classList.remove("streaming");
   ui.content.classList.remove("cursor");
   ui.content.querySelector(".thinking")?.remove();
@@ -378,7 +388,8 @@ async function ask({ fresh = false } = {}) {
   finishJudgeMessage(ui, { answer, question, meta, retryAfter, onRetry: regenerate });
   controller = null;
   setBusy(false);
-  inputEl.focus({ preventScroll: true });
+  // Ready for the next question on a computer; on a phone the keyboard would cover the answer.
+  if (hasKeyboard.matches) inputEl.focus({ preventScroll: true });
 }
 
 // --- Offline use and updates (service worker) --------------------------------

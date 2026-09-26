@@ -19,6 +19,25 @@ const CARD_TYPES = [...new Set(CARDS.map((c) => c.type).filter(Boolean))].sort()
 let serviceWorker;
 const DATA_FILES = ["riftbound-core-rules.txt", "cards.json"].map((f) => path.join(here, "data", f));
 
+// Hardening for when the app is online: scripts, data and fonts only from this
+// server (pages use inline style attributes, never inline scripts), no framing,
+// no MIME sniffing, no referrer sent to other sites.
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; "),
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "X-Frame-Options": "DENY",
+};
+
 const str = (v, max = 100) => (typeof v === "string" ? v.slice(0, max) : "");
 const clamp = (v, fallback, max) => Math.min(Math.max(Number(v) || fallback, 1), max);
 
@@ -35,6 +54,10 @@ export function createApp({
 } = {}) {
   const app = express();
   app.disable("x-powered-by");
+  app.use((_req, res, next) => {
+    res.set(SECURITY_HEADERS);
+    next();
+  });
   // Behind a host's proxy (Render sets RENDER) the client IP is in X-Forwarded-For.
   if (process.env.TRUST_PROXY || process.env.RENDER) app.set("trust proxy", 1);
   // gzip pages and JSON (~70% smaller on mobile data), but never the SSE stream
@@ -47,9 +70,9 @@ export function createApp({
   });
   app.use(
     express.static(PUBLIC, {
-      // Fonts and icons hardly ever change; the rest is revalidated (tiny 304s).
+      // Fonts, icons and artwork hardly ever change; the rest is revalidated (tiny 304s).
       setHeaders(res, file) {
-        if (/[\\/](?:fonts|icons)[\\/]/.test(file)) res.set("Cache-Control", "public, max-age=604800");
+        if (/[\\/](?:fonts|icons|img)[\\/]/.test(file)) res.set("Cache-Control", "public, max-age=604800");
       },
     }),
   );

@@ -266,7 +266,10 @@
           <button type="button" class="icon-btn" data-close aria-label="Chiudi"><svg class="i" aria-hidden="true"><use href="#i-close" /></svg></button>
         </div>
         <div class="drawer-tools">
-          <input id="combatSearch" class="field" type="search" placeholder="Cerca un'unità (nome in inglese)…" autocomplete="off" enterkeyhint="search" aria-label="Cerca un'unità" />
+          <label class="search">
+            <svg class="i" aria-hidden="true"><use href="#i-search" /></svg>
+            <input id="combatSearch" class="field" type="search" placeholder="Cerca un'unità (nome in inglese)…" autocomplete="off" enterkeyhint="search" aria-label="Cerca un'unità" />
+          </label>
         </div>
         <div id="combatAddBody" class="c-addbody"></div>
         <div class="c-addfoot"><button type="button" class="primary-btn" data-close>Fatto</button></div>
@@ -288,7 +291,7 @@
     <button id="updateBar" class="update-bar" type="button" hidden>
       <svg class="i" aria-hidden="true"><use href="#i-refresh" /></svg>Nuova versione pronta · tocca per aggiornare
     </button>
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" popover="manual"></div>
 
     <script src="/app.js" type="module"></script>
   </body>
