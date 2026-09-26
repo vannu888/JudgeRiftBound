@@ -20,6 +20,11 @@ const RARITY = { Common: "Comune", Uncommon: "Non comune", Rare: "Rara", Epic: "
 
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString("it-IT") : "");
 
+// Card images come from Riot's own image server, resized there (a 240px WebP is ~15 KB).
+const RIOT_IMAGES = "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/";
+/** URL of a card's official image, `width` pixels wide. */
+export const cardImage = (file, width = 240) => `${RIOT_IMAGES}${encodeURIComponent(file)}?accountingTag=RB&w=${width}&fm=webp&q=75`;
+
 /** CSS accent for a card: its domain color, or a gradient for dual-domain cards. */
 function accent(card) {
   const cols = (card.domains ?? []).map(domainColor);
@@ -67,8 +72,11 @@ const detail = document.getElementById("cardDialog");
 const detailBody = document.getElementById("cardDialogBody");
 
 export function openCardDetail(card) {
-  detailBody.innerHTML = cardTileHtml(card, { insert: false });
-  detail.showModal();
+  const art = card.image
+    ? `<img class="card-art" src="${escapeHtml(cardImage(card.image, 480))}" alt="${escapeHtml(card.name)}" width="480" height="670" decoding="async">`
+    : "";
+  detailBody.innerHTML = art + cardTileHtml(card, { insert: false });
+  if (!detail.open) detail.showModal();
 }
 
 /** "Carte considerate" chips at the top of a judge message. */

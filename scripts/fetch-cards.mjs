@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 // Scarica l'elenco completo delle carte e salva in data/cards.json SOLO i dati
 // funzionali utili al judge (nome, tipo, costo, might, power, dominio, tag,
-// testo delle regole, errata, rarità). Niente artwork, flavor text o prezzi.
+// testo delle regole, errata, rarità), più il nome del file dell'immagine
+// ufficiale sul server di Riot (l'app la mostra da lì, non la copia).
+// Niente flavor text o prezzi.
 //
-// Uso:  npm run cards
+// Uso:  npm run cards             tutto
+//       npm run cards -- --images solo le immagini, senza toccare il resto
 //
 // Tre fonti, unite carta per carta:
 // 1. piltoverarchive.com — la base: include le errata e le anteprime dei set in uscita.
@@ -20,6 +23,8 @@ const OUT = path.join(here, "..", "data", "cards.json");
 const PILTOVER = "https://piltoverarchive.com/cards";
 const OFFICIAL = "https://playriftbound.com/en-us/card-gallery/";
 const RIFTCODEX = "https://api.riftcodex.com/cards";
+// Riot's image server: the app builds the full URL (and the size) from the file name.
+export const RIOT_IMAGES = "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/";
 const DELAY_MS = 1200; // be polite: one request at a time
 const MAX_PAGES = 150; // safety stop
 const HEADERS = { "user-agent": "JudgeRiftBound card sync (personal rules tool)" };
@@ -235,11 +240,26 @@ export function officialItems(html) {
   return found;
 }
 
+/**
+ * The card's official image file on Riot's server ("0feb…-744x1039.png").
+ * `altImage` for alternate arts, signed and overnumbered printings: used only
+ * when a card has no regular printing.
+ */
+export function imageOf(item) {
+  const url = String(item.media?.image_url ?? "");
+  if (!url.startsWith(RIOT_IMAGES)) return {};
+  const file = url.slice(RIOT_IMAGES.length).split("?")[0];
+  if (!/^[\w-]+\.(?:png|jpe?g|webp)$/i.test(file)) return {};
+  const m = item.metadata ?? {};
+  return m.alternate_art || m.signature || m.overnumbered ? { altImage: file } : { image: file };
+}
+
 /** A card of the Riftcodex API as a record. */
 export function fromRiftcodex(item) {
   const [set = "", number = ""] = String(item.riftbound_id ?? "").split("-");
   const c = item.classification ?? {};
   return {
+    ...imageOf(item),
     name: baseName(item.name),
     type: c.type ?? undefined,
     supertype: c.supertype ?? undefined,
@@ -338,6 +358,9 @@ export function mergeCards(base, others) {
         if (!card.codes.includes(code)) card.codes.push(code);
         byCode.set(code.replace(/\*$/, ""), card);
       }
+      // Every printing may bring the image (the regular one wins), even after the card's vote.
+      card.image ??= r.image;
+      card.altImage ??= r.altImage;
       if (seen.has(card)) continue;
       seen.add(card);
       card.spellings[r.name] = (card.spellings[r.name] ?? 0) + 1;
@@ -363,8 +386,48 @@ export function mergeCards(base, others) {
     const aliases = Object.keys(c.spellings).filter((n) => nameKey(n) !== nameKey(c.name) && !taken.has(nameKey(n)));
     delete c.spellings;
     if (aliases.length) c.aliases = aliases;
+    c.image ??= c.altImage;
+    delete c.altImage;
+    if (!c.image) delete c.image;
   }
   return cards;
+}
+
+/**
+ * Add the images to cards already saved, without touching anything else:
+ * matched by name, other spelling or collector code. Returns how many cards have one.
+ */
+export function addImages(cards, records) {
+  const byName = new Map();
+  const byCode = new Map();
+  const better = (old, r) => r.image ?? old ?? r.altImage;
+  for (const r of records) {
+    const key = nameKey(r.name);
+    byName.set(key, better(byName.get(key), r));
+    for (const code of r.codes) {
+      const k = code.replace(/\*$/, "");
+      byCode.set(k, better(byCode.get(k), r));
+    }
+  }
+  let found = 0;
+  for (const c of cards) {
+    const image =
+      [c.name, ...(c.aliases ?? [])].map((n) => byName.get(nameKey(n))).find(Boolean) ??
+      (c.codes ?? []).map((code) => byCode.get(code.replace(/\*$/, ""))).find(Boolean);
+    if (image) {
+      c.image = image;
+      found++;
+    }
+  }
+  return found;
+}
+
+async function imagesOnly() {
+  const data = JSON.parse(fs.readFileSync(OUT, "utf8"));
+  console.log("api.riftcodex.com…");
+  const found = addImages(data.cards, await fetchRiftcodex());
+  fs.writeFileSync(OUT, JSON.stringify(data, null, 1) + "\n");
+  console.log(`\nImmagini per ${found} carte su ${data.cards.length} in ${path.relative(process.cwd(), OUT)}.`);
 }
 
 async function main() {
@@ -416,7 +479,7 @@ async function main() {
 
 // Run only when executed directly (not when imported by tests).
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
-  main().catch((err) => {
+  (process.argv.includes("--images") ? imagesOnly() : main()).catch((err) => {
     console.error("Errore durante il download delle carte:", err);
     process.exit(1);
   });

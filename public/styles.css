@@ -1390,7 +1390,7 @@ select.field {
 /* Tabs (archive) */
 .tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
   margin-bottom: 12px;
@@ -2525,6 +2525,609 @@ mark {
 .gr-meta {
   font-size: 12px;
   color: var(--text-faint);
+}
+
+/* ---------- Decks: the list in the archive ---------- */
+.deck-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.deck-import summary {
+  list-style: none;
+}
+.deck-import summary::-webkit-details-marker {
+  display: none;
+}
+.deck-import[open] {
+  display: grid;
+  gap: 8px;
+  flex-basis: 100%;
+}
+.deck-import[open] summary {
+  justify-self: start;
+}
+.deck-import textarea {
+  width: 100%;
+  resize: vertical;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.deck-import .primary-btn {
+  justify-self: end;
+}
+.deck-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.deck-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-solid);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-thumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  aspect-ratio: 744 / 1039;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--panel-2);
+  color: var(--gold);
+}
+.deck-thumb img,
+.slot-art img,
+.row-art img,
+.dcard-add img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.deck-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.deck-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.deck-counts {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.deck-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.deck-status .i {
+  width: 14px;
+  height: 14px;
+}
+.deck-status.ok,
+.deck-summary .ok,
+.deck-ok {
+  color: #5fd3a0;
+}
+.deck-status.warn,
+.deck-summary .warn {
+  color: var(--gold-soft);
+}
+
+/* ---------- Decks: the editor (full screen on phones, two columns on computers) ---------- */
+.deck-dialog {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+.deck-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  padding: 14px 16px;
+  padding-top: max(14px, env(safe-area-inset-top));
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+}
+.deck-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.deck-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--gold);
+}
+.deck-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.deck-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.deck-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-variant-numeric: tabular-nums;
+}
+.deck-summary .i {
+  width: 14px;
+  height: 14px;
+}
+.deck-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.deck-panes {
+  flex: 1;
+  display: grid;
+  min-height: 0;
+}
+.deck-pane {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.deck-dialog[data-pane="deck"] .add-pane,
+.deck-dialog[data-pane="add"] .main-pane {
+  display: none;
+}
+@media (min-width: 900px) {
+  .deck-dialog {
+    width: min(1180px, calc(100vw - 48px));
+    height: min(920px, calc(100dvh - 48px));
+    margin: auto;
+    border: 1px solid var(--border-strong);
+    border-radius: 18px;
+  }
+  .deck-tabs {
+    display: none;
+  }
+  .deck-panes {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 20px;
+  }
+  .deck-dialog[data-pane] .add-pane,
+  .deck-dialog[data-pane] .main-pane {
+    display: block;
+  }
+}
+.deck-tools {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  background: var(--bg-2);
+}
+.deck-filters {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.deck-filters .dom-pill {
+  --dc: var(--gold);
+  flex: none;
+  min-height: 34px;
+}
+.deck-filters .dom-pill[aria-pressed="true"] {
+  color: #1c160a;
+}
+.deck-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+/* The cards to add: a grid of official images */
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 12px 10px;
+  padding-bottom: 10px;
+}
+.dcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.dcard-add {
+  position: relative;
+  display: block;
+  padding: 0;
+  aspect-ratio: 744 / 1039;
+  border: none;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--panel-2);
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+.dcard-add:active {
+  transform: scale(0.97);
+}
+.dcard.in .dcard-add {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.dcard-count {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #1c160a;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.dcard-info {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(6, 9, 13, 0.72);
+  color: var(--text);
+  cursor: pointer;
+}
+.dcard-info .i {
+  width: 16px;
+  height: 16px;
+}
+.dcard-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  line-height: 1.25;
+  color: var(--text-dim);
+}
+.thumb-ph {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  background: linear-gradient(160deg, var(--panel-2), var(--panel-solid));
+  color: var(--text-dim);
+  font-size: 11px;
+  text-align: center;
+}
+/* The deck itself */
+.deck-problems {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 13px;
+  border: 1px solid rgba(217, 180, 95, 0.4);
+  background: rgba(217, 180, 95, 0.06);
+}
+.deck-problems p {
+  margin: 0 0 6px;
+}
+.deck-problems ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+}
+.deck-ok,
+.deck-unknown {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.deck-unknown {
+  color: var(--gold-soft);
+  font-weight: 500;
+}
+.deck-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.deck-slot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-solid);
+}
+.deck-slot.empty {
+  border-style: dashed;
+  border-color: rgba(217, 180, 95, 0.5);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.deck-slot.empty > .i {
+  width: 22px;
+  height: 22px;
+  color: var(--gold);
+}
+.deck-slot.empty > span {
+  display: flex;
+  flex-direction: column;
+}
+.slot-art,
+.row-art {
+  flex: none;
+  padding: 0;
+  aspect-ratio: 744 / 1039;
+  border: none;
+  overflow: hidden;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+.slot-art {
+  width: 58px;
+  border-radius: 6px;
+}
+.slot-text,
+.row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.slot-text strong,
+.row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slot-kind {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.slot-acts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.dom-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 3px;
+  border-radius: 50%;
+  background: var(--dc);
+  vertical-align: middle;
+}
+.deck-stats {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--panel-solid);
+}
+.deck-stats .setup-label {
+  margin: 0 0 6px;
+}
+/* Energy curve: one gold bar per cost, the count above it. */
+.curve {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+  height: 96px;
+}
+.curve-col {
+  display: grid;
+  grid-template-rows: 16px minmax(0, 1fr) 16px;
+  justify-items: center;
+  height: 100%;
+}
+.curve-n {
+  align-self: end;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.curve-bar {
+  align-self: end;
+  width: 68%;
+  border-radius: 4px 4px 0 0;
+  background: var(--gold);
+}
+.curve-x {
+  align-self: end;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.deck-types {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.deck-types b {
+  color: var(--text);
+}
+.deck-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 18px 0 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  color: var(--gold-soft);
+}
+.deck-section span {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.deck-group {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.deck-rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.deck-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-solid);
+}
+.row-art {
+  width: 40px;
+  border-radius: 5px;
+}
+.row-art .thumb-ph {
+  padding: 2px;
+  font-size: 7px;
+}
+.row-name {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.row-meta .cost {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #dde4ec 60%, #aeb9c6);
+  color: #10161f;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.row-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.row-step button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.row-step output {
+  min-width: 18px;
+  text-align: center;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+a.icon-btn,
+a.chip-btn {
+  text-decoration: none;
+}
+.icon-btn.shop {
+  color: var(--gold-soft);
+}
+.link-btn.small {
+  font-size: 12px;
+}
+.deck-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 6px;
+}
+.card-art {
+  display: block;
+  width: min(100%, 300px);
+  height: auto;
+  margin: 0 auto 12px;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
 }
 
 /* ---------- Table mode: the phone between the players ---------- */

@@ -117,3 +117,26 @@ test("sources are merged: majority name, aliases, errata kept, new cards added",
   assert.equal(out.length, 5);
   assert.ok(!("spellings" in by.Stargazer));
 });
+
+test("images: the regular printing's file on Riot's server, alternates only as a fallback", async () => {
+  const { imageOf, addImages, fromRiftcodex, RIOT_IMAGES } = await import("../scripts/fetch-cards.mjs");
+  const item = (file, metadata = {}) => ({
+    name: "Falling Comet",
+    riftbound_id: "ogn-085-298",
+    media: { image_url: `${RIOT_IMAGES}${file}?accountingTag=RB` },
+    metadata,
+  });
+  assert.deepEqual(imageOf(item("abc-744x1039.png")), { image: "abc-744x1039.png" });
+  assert.deepEqual(imageOf(item("alt-744x1039.png", { alternate_art: true })), { altImage: "alt-744x1039.png" });
+  assert.deepEqual(imageOf({ media: { image_url: "https://example.com/x.png" } }), {}); // another server: ignored
+  assert.deepEqual(imageOf({ media: { image_url: `${RIOT_IMAGES}../x.png` } }), {}); // not a plain file name
+
+  const cards = [{ name: "Falling Comet", codes: ["OGN-085"] }, { name: "Stargazer", aliases: ["Stagazer"], codes: [] }, { name: "Nothing", codes: [] }];
+  const records = [
+    fromRiftcodex(item("alt.png", { signature: true })),
+    fromRiftcodex(item("base.png")),
+    { name: "Stagazer", codes: [], image: "star.png" },
+  ];
+  assert.equal(addImages(cards, records), 2);
+  assert.deepEqual(cards.map((c) => c.image), ["base.png", "star.png", undefined]);
+});

@@ -195,6 +195,25 @@ function unitStats(c) {
 
 export const UNIT_STATS = CARDS.filter((c) => c.type === "Unit").map(unitStats);
 
+/**
+ * Every card a deck can hold (no tokens), compact for the deck builder:
+ * [name, type, supertype, domains, energy, power, might, tags, image, set, other spellings].
+ * `image` is the file name on Riot's image server.
+ */
+export const DECK_CARDS = CARDS.filter((c) => c.supertype !== "Token" && c.type !== "Card").map((c) => [
+  c.name,
+  c.type ?? "",
+  c.supertype ?? "",
+  c.domains ?? [],
+  c.energy ?? 0,
+  c.power ?? 0,
+  c.might ?? 0,
+  c.tags ?? [],
+  c.image ?? "",
+  c.set ?? "",
+  c.aliases ?? [],
+]);
+
 /** Free-text search for the card browser, with optional domain/type filters. */
 export function searchCards({ q = "", domain = "", type = "", limit = 60 } = {}) {
   const query = normalize(q);

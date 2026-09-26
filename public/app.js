@@ -6,6 +6,7 @@ import { addUserMessage, createJudgeMessage, finishJudgeMessage, addNote, scroll
 import { newSession, saveSession, listSessions, initHistory, renderRecent } from "./history.js";
 import { initScoreboard, gameContext } from "./score.js";
 import { initCombat } from "./combat.js";
+import { initDecks } from "./decks.js";
 import { icon } from "./icons.js";
 import { initSuggestions } from "./suggest.js";
 
@@ -50,12 +51,13 @@ document.addEventListener("click", (e) => {
 
 // --- Archive (cards and rules) ---------------------------------------------------
 let archiveTab = "cards";
+const decksPanel = initDecks($("deckList")); // decks live on the device: ready before the server answers
 function openArchive(tab = archiveTab, query) {
   archiveTab = tab;
   for (const b of archive.querySelectorAll("[role=tab]")) b.setAttribute("aria-selected", String(b.dataset.tab === tab));
   for (const p of archive.querySelectorAll("[data-panel]")) p.hidden = p.dataset.panel !== tab;
   if (!archive.open) archive.showModal();
-  const panel = panels?.[tab];
+  const panel = tab === "decks" ? decksPanel : panels?.[tab];
   if (!panel) return;
   if (query === undefined) panel.activate();
   else panel.search(query);

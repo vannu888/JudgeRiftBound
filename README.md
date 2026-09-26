@@ -13,6 +13,8 @@ gratuita di Google Gemini**.
   (Ganking, Deflect…) aprono la loro regola.
 - 🔎 **Archivio** con due schede: **Carte** (ricerca, filtri per dominio e tipo, inserimento nella
   domanda) e **Regole** (ricerca nel regolamento per parola o numero).
+- 🃏 **Mazzi** con le immagini ufficiali delle carte: deckbuilding con controllo delle regole di
+  costruzione, curva dei costi, import/export della lista e link a **Cardmarket** per comprare le carte.
 - 🏆 **Segnapunti** per la partita con le regole ufficiali di punteggio (vedi sotto), Energy non
   spesa, timer del round e diario delle partite con le statistiche per Leggenda; se vuoi, il judge
   conosce il punteggio quando gli fai una domanda.
@@ -154,6 +156,28 @@ Il punteggio resta salvato sul telefono anche se chiudi l'app e compare nel puls
 **"Il judge conosce il punteggio"** attivo, ogni domanda include lo stato della partita, così il judge
 può rispondere a domande come *"se conquisto adesso, vinco?"*.
 
+## Mazzi
+
+Nell'**Archivio** c'è la scheda **Mazzi**: crei un mazzo (o **importi una lista** incollata da dove
+vuoi: una carta per riga, es. `3 Get Excited!`, le sezioni Legend/Champion/Main Deck/Battlefields/Runes
+sono facoltative) e lo costruisci con le **immagini ufficiali** delle carte.
+
+- In **Aggiungi carte** tocchi un'immagine per aggiungere una copia: le Leggende diventano la
+  Leggenda del mazzo, la prima unità campione giusta diventa il **Campione scelto**, battlefield e
+  rune vanno nelle loro sezioni. Filtri per tipo (Leggende, Campioni, Unità, Spell, Gear,
+  Battlefield, Rune) e, di base, solo le carte dei **domini della tua Leggenda**. Il libro in alto a
+  destra di ogni carta ne apre il testo.
+- In **Mazzo** vedi Leggenda e Campione, la **curva dei costi**, le carte divise per tipo con **−/+**,
+  i battlefield e le rune. L'app controlla le **regole di costruzione** (103) e dice cosa sistemare,
+  con il numero della regola: Leggenda (103.1), Campione della Leggenda (103.2.a), almeno 40 carte
+  (103.2), massimo 3 copie per nome (103.2.b), identità di dominio (103.1.b), al massimo 3 Signature
+  del tuo campione (103.2.d), 12 rune (103.3) e 3 battlefield diversi nel 1v1 (480.4.a).
+- Il **carrello** accanto a ogni carta apre la ricerca di quella carta su **Cardmarket** (sezione
+  Riftbound); **Copia la lista** copia il mazzo come testo, da condividere o reimportare.
+
+I mazzi restano sul telefono. Le immagini arrivano dal server di Riot, quindi servono la rete (poi le
+tiene la cache del browser); l'app non raccoglie prezzi né dati da Cardmarket, apre solo i link.
+
 ## Combattimento
 
 Il pulsante con la **spada** in alto apre il calcolatore di un singolo combattimento. Come la modalità
@@ -183,14 +207,17 @@ Il combattimento resta salvato sul telefono finché non ne inizi uno nuovo (la f
 ## Database delle carte
 
 Il file `data/cards.json` contiene i dati **funzionali** di tutte le carte (nome, tipo, dominio, costo
-in Energy/Power, Might, tag, testo delle regole, errata, ban, set e rarità). Niente artwork, flavor text
-o prezzi. Lo script unisce tre fonti, carta per carta:
+in Energy/Power, Might, tag, testo delle regole, errata, ban, set e rarità) e il **nome del file
+dell'immagine ufficiale**: l'immagine resta sul server di Riot e l'app la mostra da lì, già
+rimpicciolita (una miniatura pesa circa 15 KB). Niente flavor text o prezzi. Lo script unisce tre
+fonti, carta per carta:
 
 - [piltoverarchive.com](https://piltoverarchive.com/cards) — la base: include le **errata** e le
   anteprime dei set in uscita;
 - la [galleria ufficiale di Riot](https://playriftbound.com/en-us/card-gallery/) — corregge i refusi
   del testo (non tocca le carte con errata, perché la galleria mostra il testo stampato);
-- l'API di [Riftcodex](https://riftcodex.com/) — nuove carte e conferma dei nomi.
+- l'API di [Riftcodex](https://riftcodex.com/) — nuove carte, conferma dei nomi e link alle immagini
+  ufficiali (della stampa normale: le illustrazioni alternative solo se non ce n'è un'altra).
 
 Quando le fonti scrivono un nome in modo diverso vince la maggioranza, e le altre grafie restano come
 alias (il judge riconosce sia `Stargazer` sia `Stagazer`).
@@ -200,6 +227,8 @@ Quando esce un nuovo set, aggiornalo con:
 ```bash
 npm run cards
 ```
+
+Per aggiornare solo le immagini, senza toccare il resto dei dati: `npm run cards -- --images`.
 
 Lo script fa una richiesta alla volta (per non pesare sui siti), continua anche se una fonte non
 risponde e riscrive `data/cards.json`: rilancialo durante le anteprime di un nuovo set (es. Radiance,
@@ -226,7 +255,7 @@ Opzioni nel file `.env` (vedi `.env.example`):
 
 ```
 JudgeRiftBound/
-├── server.js                     # server Express: /api/health, /api/cards (+ /names, /units), /api/rules, /api/ask
+├── server.js                     # server Express: /api/health, /api/cards (+ /names, /units, /deck), /api/rules, /api/ask
 ├── src/
 │   ├── judge.js                  # prompt del judge + chiamata Gemini (streaming, thinking)
 │   ├── ask.js                    # risposta in streaming (SSE): retry, timeout, errori
@@ -250,6 +279,7 @@ JudgeRiftBound/
 │   ├── score.js · score-model.js # segnapunti (interfaccia e regole di punteggio, Energy non spesa)
 │   ├── timer.js · timer-model.js # timer del round (interfaccia e logica)
 │   ├── diary.js · diary-model.js # diario partite e statistiche per Leggenda
+│   ├── decks.js · deck-model.js  # mazzi: editor a immagini e regole di costruzione (103)
 │   ├── combat.js · combat-model.js # calcolatore di combattimento (interfaccia e regole 460-461)
 │   ├── api.js                    # chiamate al server (e blocco con password)
 │   └── markdown.js               # rendering sicuro di risposte e simboli di gioco
@@ -263,7 +293,8 @@ npm test
 ```
 
 Verificano il riconoscimento delle carte, il regolamento (compattazione, ricerca, sezioni), le
-regole di punteggio del segnapunti, il timer del round, il diario e le sue statistiche, i calcoli
+regole di punteggio del segnapunti, il timer del round, il diario e le sue statistiche, le regole di costruzione dei mazzi e
+l'import/export delle liste, i calcoli
 del combattimento (Might, parole chiave, ordine dei
 danni, esito), il rendering sicuro, la password e i limiti, il service worker,
 lo scraper e l'intero flusso della chat (con Gemini simulato: streaming, modelli di riserva, cache
@@ -310,4 +341,5 @@ delle risposte, limiti, timeout, compressione).
 - Questo strumento si basa sulle Core Rules e **non sostituisce** un judge certificato: in un torneo
   ufficiale la parola finale spetta all'arbitro presente.
 - La chiave API resta **solo sul server** (nel file `.env`, escluso da Git) e non viene mai esposta al
-  browser. Cronologia, segnapunti, timer e diario restano solo sul tuo dispositivo.
+  browser. Cronologia, segnapunti, timer, diario e mazzi restano solo sul tuo dispositivo. L'unica
+  richiesta a un altro sito sono le immagini delle carte, dal server ufficiale di Riot.
