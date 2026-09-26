@@ -168,6 +168,33 @@ export const CARD_NAMES = CARDS.map((c) => {
   return other.length ? [c.name, c.type ?? "", c.domains?.[0] ?? "", other] : [c.name, c.type ?? "", c.domains?.[0] ?? ""];
 });
 
+// Printed keywords open a line of rules text: "[Assault 2], [Shield 2] (+2 [Might]…)".
+// Keywords granted by conditions ("While I'm Mighty, I have [Shield]") are not printed.
+const KEYWORD_LINE = /^(?:\[[A-Z][\w-]*(?: \d+)?\](?:, *| +)?)+/;
+// Text that can change a unit's numbers in combat: "+2 [Might]", granted keywords, buffs, stuns.
+const MIGHT_WORDS = /[+-] ?\d* ?\[Might\]|\[(?:Assault|Shield|Tank|Backline|Mighty)|\bbuff|\bstun/i;
+
+/** Combat numbers of a unit: [name, might, assault, shield, flags] with flags 1 Tank, 2 Backline, 4 check the text. */
+function unitStats(c) {
+  let assault = 0;
+  let shield = 0;
+  let flags = 0;
+  const rest = [];
+  for (const line of (c.text ?? "").split("\n")) {
+    const printed = line.match(KEYWORD_LINE)?.[0] ?? "";
+    for (const [, kw, n] of printed.matchAll(/\[(Assault|Shield|Tank|Backline)(?: (\d+))?\]/g)) {
+      if (kw === "Assault") assault += Number(n ?? 1);
+      else if (kw === "Shield") shield += Number(n ?? 1);
+      else flags |= kw === "Tank" ? 1 : 2;
+    }
+    rest.push(line.slice(printed.length).replace(/\([^)]*\)/g, ""));
+  }
+  if (MIGHT_WORDS.test(rest.join(" "))) flags |= 4;
+  return [c.name, c.might ?? 0, assault, shield, flags];
+}
+
+export const UNIT_STATS = CARDS.filter((c) => c.type === "Unit").map(unitStats);
+
 /** Free-text search for the card browser, with optional domain/type filters. */
 export function searchCards({ q = "", domain = "", type = "", limit = 60 } = {}) {
   const query = normalize(q);

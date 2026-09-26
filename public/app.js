@@ -5,6 +5,7 @@ import { openRule, initRulesPanel } from "./rules.js";
 import { addUserMessage, createJudgeMessage, finishJudgeMessage, addNote, scrollDown, toast } from "./chat.js";
 import { newSession, saveSession, listSessions, initHistory, renderRecent } from "./history.js";
 import { initScoreboard, gameContext } from "./score.js";
+import { initCombat } from "./combat.js";
 import { icon } from "./icons.js";
 import { initSuggestions } from "./suggest.js";
 
@@ -403,6 +404,14 @@ $("updateBar").addEventListener("click", () => location.reload());
 
 // --- Go ----------------------------------------------------------------------
 initScoreboard();
+initCombat({
+  onAsk(text) {
+    inputEl.value = text;
+    autoGrow();
+    inputEl.focus();
+    toast("Combattimento nella domanda: aggiungi i dettagli e invia");
+  },
+});
 start();
 window.addEventListener("online", () => start());
 const last = listSessions()[0];

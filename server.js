@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import express from "express";
 import compression from "compression";
 import { MODELS, HAS_API_KEY } from "./src/judge.js";
-import { CARDS, CARD_NAMES, DOMAINS, CARDS_UPDATED_AT, searchCards } from "./src/cards.js";
+import { CARDS, CARD_NAMES, UNIT_STATS, DOMAINS, CARDS_UPDATED_AT, searchCards } from "./src/cards.js";
 import { RULE_COUNT, getRule, searchRules } from "./src/rules.js";
 import { createAskHandler } from "./src/ask.js";
 import { createAccessControl, rateLimit } from "./src/security.js";
@@ -87,6 +87,11 @@ export function createApp({
   // All card names at once: the question box filters them on the phone, even offline.
   app.get("/api/cards/names", (_req, res) => {
     res.json({ updatedAt: CARDS_UPDATED_AT, names: CARD_NAMES });
+  });
+
+  // Every unit's combat numbers, for the combat calculator.
+  app.get("/api/cards/units", (_req, res) => {
+    res.json({ updatedAt: CARDS_UPDATED_AT, units: UNIT_STATS });
   });
 
   app.get("/api/rules", (req, res) => {

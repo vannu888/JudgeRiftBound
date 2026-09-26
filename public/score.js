@@ -28,6 +28,9 @@ let pending = null; // player whose Conquer at match point awaits the "all battl
 /** The score to send with a question, when a game is on and sharing is enabled. */
 export const gameContext = () => (game && share ? toContext(game) : null);
 
+/** The two sides' names while a two-sided game is on (for the combat screen), else null. */
+export const playerNames = () => (game && game.players.length === 2 && game.winner === null ? game.players.map((p) => p.name) : null);
+
 function save() {
   store(GAME_KEY, game);
   button.querySelector(".score-chip").textContent = game ? summary(game) : "Punti";
@@ -286,6 +289,18 @@ function act(i, kind, allBattlefields) {
   navigator.vibrate?.(12);
   if (res.drew) toast("Niente punto vincente: si pesca 1 carta (466.1.b.2)");
   else if (wasOpen && game.winner !== null) toast(`🏆 ${game.players[game.winner].name} ${verb(game.winner, "vince", "vinci")} la partita!`);
+}
+
+/**
+ * A Conquer won on the combat screen: "done", "confirm" when it would be the
+ * winning point (the scoreboard opens to ask about the battlefields), null without a game.
+ */
+export function scoreConquer(i) {
+  if (!playerNames()) return null;
+  act(i, "conquer");
+  if (pending !== i) return "done";
+  dialog.showModal();
+  return "confirm";
 }
 
 function reset() {

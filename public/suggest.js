@@ -11,7 +11,7 @@ const MAX_WORDS = 5; // the longest card names
 const TYPE_LABEL = { Unit: "Unità", Legend: "Leggenda", Battlefield: "Battlefield", Rune: "Runa", Card: "Segnalino" };
 
 /** "Kai'Sa, Survivor" -> ["kaisa", "survivor"] (accents, apostrophes and punctuation dropped). */
-const words = (s) =>
+export const words = (s) =>
   s
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")

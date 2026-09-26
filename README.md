@@ -133,6 +133,32 @@ Il punteggio resta salvato sul telefono anche se chiudi l'app e compare nel puls
 **"Il judge conosce il punteggio"** attivo, ogni domanda include lo stato della partita, così il judge
 può rispondere a domande come *"se conquisto adesso, vinco?"*.
 
+## Combattimento
+
+Il pulsante con la **spada** in alto apre il calcolatore di un singolo combattimento. Come la modalità
+tavolo, il telefono va al centro: la metà in basso è tua, quella in alto è capovolta verso
+l'avversario, e ognuno gestisce le sue unità dal suo lato. Le frecce al centro scambiano chi attacca e
+chi difende.
+
+- **+ Unità** cerca la carta per nome (in inglese) e ne carica il **Might** e le parole chiave
+  stampate: **Assault** conta solo in attacco, **Shield** solo in difesa, **Tank** e **Backline**
+  decidono l'ordine dei danni. Ci sono anche i segnalini (Recruit, Sand Soldier, Mech…) e le unità
+  senza carta con il Might che vuoi.
+- Toccando un'unità si aprono i modificatori: **Buff** (+1, uno solo), **+/− per questo turno**,
+  **bonus dell'equipaggiamento**, **danni già subiti**, **Stordita** (non infligge danni ma serve
+  tutto il suo Might per ucciderla), Tank/Backline concessi, Assault/Shield in più e **Danni per
+  prima** per scegliere quale unità colpire. Sotto c'è il testo della carta: le abilità condizionali
+  (il **!** sulla tessera) vanno aggiunte a mano.
+- Mentre inserisci, l'app somma il Might di ogni lato, assegna i danni come la regola 460 (danno
+  letale completo prima di passare all'unità successiva; tra unità con la stessa priorità propone
+  l'ordine che ne elimina di più), segna chi **muore** e dice come finisce secondo la 461:
+  conquista, battlefield difeso, attaccanti richiamati o battlefield senza controllo. Dice anche
+  **quanto manca**: *"con +1 Might elimini tutte le unità avversarie"*.
+- La **bilancia** al centro manda il combattimento al judge come domanda già scritta; con una partita
+  in corso nel segnapunti, **Segna la Conquista** aggiunge il punto a chi ha vinto.
+
+Il combattimento resta salvato sul telefono finché non ne inizi uno nuovo (la freccia circolare).
+
 ## Database delle carte
 
 Il file `data/cards.json` contiene i dati **funzionali** di tutte le carte (nome, tipo, dominio, costo
@@ -179,7 +205,7 @@ Opzioni nel file `.env` (vedi `.env.example`):
 
 ```
 JudgeRiftBound/
-├── server.js                     # server Express: /api/health, /api/cards, /api/rules, /api/ask
+├── server.js                     # server Express: /api/health, /api/cards (+ /names, /units), /api/rules, /api/ask
 ├── src/
 │   ├── judge.js                  # prompt del judge + chiamata Gemini (streaming, thinking)
 │   ├── ask.js                    # risposta in streaming (SSE): retry, timeout, errori
@@ -201,6 +227,7 @@ JudgeRiftBound/
 │   ├── history.js                # cronologia salvata sul dispositivo
 │   ├── storage.js                # salvataggi locali sicuri (localStorage)
 │   ├── score.js · score-model.js # segnapunti (interfaccia e regole di punteggio)
+│   ├── combat.js · combat-model.js # calcolatore di combattimento (interfaccia e regole 460-461)
 │   ├── api.js                    # chiamate al server (e blocco con password)
 │   └── markdown.js               # rendering sicuro di risposte e simboli di gioco
 └── test/                         # test automatici (npm test)
@@ -213,7 +240,8 @@ npm test
 ```
 
 Verificano il riconoscimento delle carte, il regolamento (compattazione, ricerca, sezioni), le
-regole di punteggio del segnapunti, il rendering sicuro, la password e i limiti, il service worker,
+regole di punteggio del segnapunti, i calcoli del combattimento (Might, parole chiave, ordine dei
+danni, esito), il rendering sicuro, la password e i limiti, il service worker,
 lo scraper e l'intero flusso della chat (con Gemini simulato: streaming, modelli di riserva, cache
 delle risposte, limiti, timeout, compressione).
 
